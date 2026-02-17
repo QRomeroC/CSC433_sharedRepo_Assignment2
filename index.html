@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Homework4</title>
+  </head>
+	<style>
+		.part {border-style: double;}
+		.wrapper {width:100%;}
+	</style>
+  <body>
+ <h1 align="center">Homework 4</h1>
+	
+	<div>
+        <input type="file" id="load_scene" multiple>
+    </div>
+	
+  <div class="part">
+  <div>
+	<canvas id="canvas" width="1" height="1"></canvas>
+  </div> 
+  </div>
+  
+  <p align="center">
+	<button type="button" id="save_scene_picture">Save current framebuffer to PPM!</button> 
+  </p>
+
+  <p align="center">
+	<button type="button" id="save_gif">Save GIF!</button> 
+  </p>
+
+  <script type="text/javascript" src="renderer.js"></script>
+  <script type="text/javascript" src="FileSaver.js"></script>
+  <script type="text/javascript" src="png.js"></script>
+  <script type="text/javascript" src="LZWEncoder.js"></script>
+  <script type="text/javascript" src="NeuQuant.js"></script>
+  <script type="text/javascript" src="GIFEncoder.js"></script>
+	
+  </body>
+</html>
