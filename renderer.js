@@ -296,7 +296,7 @@ function readSceneMaterial()//This is the function that is called after user sel
 						let img=parsePPM(file_data,fileName);//Parse image
 						imageData.push(img);
 						filesToRead[index]=false;//Javascript does not immediately read the files. It starts to read only when the function returns. A list of "to be read files" is required.
-					}else if(fileExtension=='js')
+					}else if(fileExtension=='json')
 					{
 						var file_data = this.result;
 						scenes.push(parseScene(file_data));//Parse scene
@@ -320,13 +320,15 @@ function readSceneMaterial()//This is the function that is called after user sel
 			})(file,i);
 			let fileName = file.name;
 			let fileExtension = fileName.split('.').pop();
-			if(fileExtension=='ppm' || fileExtension=='js' || fileExtension=='json')
+			if(fileExtension=='ppm' || fileExtension=='js')
 			{
 				reader.readAsBinaryString(file);
 			}else if(fileExtension=='png'){
 				reader.readAsArrayBuffer(file);
+			}else if(fileExtension=='json')
+			{
+				reader.readAsText(file);
 			}
-		}
 		drawScene();//Enter the drawing loop
 	}
 }
@@ -352,7 +354,8 @@ function assignImagesToScenes()//Initially the scene and images need to be read 
 			}
 		}
 	}
-	if scense.length > 0){
+	if (scense.length > 0)
+	{
 		currentScene = scenes[0];
 	}
 }
@@ -360,13 +363,6 @@ function assignImagesToScenes()//Initially the scene and images need to be read 
 function parseScene(file_data)//A function to read JSON and put the data inside a scene class
 {
 	let text = file_data;
-	
-	let firstBracket = text.indexOf("{");
-	let lastBracket = text.lastIndexOf("}");
-	if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket){
-	text = text.substring(firstBracket,lastBracket + 1);
-	}
-	
 	let obj = null;
 	try{
 		obj = JSON.parse(text);

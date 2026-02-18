@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JSON File Loader</title>
+</head>
+<body>
+
+    <h2>Load and Parse JSON File</h2>
+    <input type="file" id="fileInput" accept=".json">
+    <pre id="output"></pre>
+
+    <script>
+        document.getElementById("fileInput").addEventListener("change", handleFile);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const jsonText = e.target.result;
+                    const data = JSON.parse(jsonText);
+
+                    console.log("Parsed JSON:", data);
+
+                    // Pretty print to screen
+                    document.getElementById("output").textContent =
+                        JSON.stringify(data, null, 2);
+
+                        let eyelocs = data.eyeLocations
+
+                        console.log(eyelocs);
+
+
+                    } catch (error) {
+                    alert("Invalid JSON file!");
+                    console.error(error);
+                }
+              
+              };
+
+            reader.readAsText(file);
+        }
+    </script>
+
+</body>
+</html>
+
