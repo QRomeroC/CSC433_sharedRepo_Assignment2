@@ -39,7 +39,7 @@ class Sphere {//This object stores a sphere
 	constructor(center,radius,color){
 		this.center=center;
 		this.radius=radius;
-		this.color=color;
+		this.amb = ambient;
 	}
 }
 
@@ -364,7 +364,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 	let firstBracket = text.indexOf("{");
 	let lastBracket = text.lastIndexOf("}");
 	if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket){
-	text = text.substring(firstBracket,lastBracket + 1);
+		text = text.substring(firstBracket,lastBracket + 1);
 	}
 	
 	let obj = null;
@@ -381,7 +381,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 	let atArr = camObj.lookAt || camObj.at || [0,0,0];
 	let upArr = camObj.up || [0,1,0];
 	
-	let fov = camObj.fov || camObj.fovy || 60;
+	let fov = camObj.fov_angle || camObj.fovy || 60;
 	let width = camObj.width || 256;
 	let height = camObj.height || 256;
 	
@@ -399,7 +399,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 	);
 	
 	let spheres = [];
-	let sphereList = onj.spheres || obj.objects || [];
+	let sphereList = obj.spheres || obj.objects || [];
 	for (let i = 0; i < sphereList.length; i++){
 		let currSphere = sphereList[i];
 		if (!currSphere){
