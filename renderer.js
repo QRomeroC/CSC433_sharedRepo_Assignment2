@@ -26,17 +26,18 @@ var newSceneReq = false;
 var currentScene;//Current rendering scene
 
 class Billboard {//This object stores a billboard
-	constructor(UpperLeft,LowerLeft,UpperRight,imgFile,img){
-		this.UpperLeft=UpperLeft;
+	constructor(LowerLeft,UpperLeft,UpperRight,LowerRight,imgFile,img){
 		this.LowerLeft=LowerLeft;
+		this.UpperLeft=UpperLeft;
 		this.UpperRight=UpperRight;
+		this.LowerRight=LowerRight;
 		this.imgFile=imgFile;
 		this.img=img;
 	}
 }
 
 class Sphere {//This object stores a sphere
-	constructor(center,radius,color){
+	constructor(center,radius,ambient){
 		this.center=center;
 		this.radius=radius;
 		this.amb = ambient;
@@ -93,6 +94,26 @@ class RGBAValue{
 	}
 }
 
+function makeImagePlane(eye,forward,right,up,dist,fovDeg,imgWidth,imgHeight){
+	let aspect = imgWidth/imgHeight;
+	let fovRad = (fovDeg * Math.PI) / 180.0;
+	
+	let halfHeight = dist * Math.tan(fovRad / 2.0);
+	let halfWidth = halfHeight * aspect;
+	
+	let center = Vector3.sumTwoVectors(eye, Vector3.multiplyVectorScalar(forward,dist));
+	
+	let upPart = Vector3.multiplyVectorScalar(up,halfHeight);
+	let rightPart = Vector3.multiplyVectorScalar(right,halfWidth);
+	
+	let LL = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,Vector3.negate(upPart)),Vector3.negate(rightPart));
+	let UL = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,upPart),Vector3.negate(rightPart));
+	let UR = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,upPart),rightPart);
+	let LR = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,Vector3.negate(upPart)),rightPart);
+	
+	return { center: center, LL: LL, UL: UL, UR: UR, LR: LR, dist: dist };
+}
+
 class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
 		this.eye = eye;
@@ -106,43 +127,59 @@ class Camera{//This object stores camera vectors
 		this.bitmap = [];
 		for (let x = 0; x < width; x++){
 			this.bitmap[x] = [];
-			for(let y = 0; y < height; y++){
-				this.bitmap[x][y] = new RGBAValue(0,0,0,255);
+			for (let y = 0; y < height; y++){
+				this.bitmap[x][y] = new RGBAValue(
+					this.backgroundColor.r,
+					this.backgroundColor.g,
+					this.backgroundColor.b,
+					255
+				);
 			}
 		}
-		this.rebuildBasis();
+		
+		this.buildBasis();
+		
+		this.nearDist = 1.0;
+		this.farDist = 10.0;
+		
+		this.nearPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
+										this.nearDist, this.fov, this.width, this.height);
+										
+		this.farPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
+									   this.farDist, this.fov, this.width, this.height);
 	}
 	
-	rebuildBasis(){
-		this.foward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt,this.eye));
-		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.foward,this.up));
-		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right,this.forward));
-	}	
+	buildBasis(){
+		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
+		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.up));
+		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
+	}
 	
 	generateRay(pixelX, pixelY){
 		let w = this.width;
 		let h = this.height;
-		let aspect = w/h;
 		
-		let fovRad = (this.fov * Math.PI)/180.0;
-		let tanHalfFOV = Math.tan(fovRad/2.0);
+		let u = (pixelX + 0.5) / w;
+		let v = (pixelY + 0.5) / h;
 		
-		let normDevCoordX = (2 * (pixelX + 0.5) / w) - 1;
-		let normDevCoordY = 1 - (2 * (pixelY + 0.5) / h);
+		//point = UL + u(UR-UL) + v(LL-UL)
+		let LL = this.nearPlane.LL;
+		let UL = this.nearPlane.UL;
+		let UR = this.nearPlane.UR;
 		
-		let px = normDevCoordX * tanHalfFOV * aspect;
-		let py = normDevCoordY * tanHalfFOV;
+		let horiz = Vector3.minusTwoVectors(UR,UL);
+		let vert = Vector3.minusTwoVectors(LL,UL);
 		
-		let dir = Vector3.sumTwoVectors(
-			this.foward,
+		let p = Vector3.sumTwoVectors(
+			UL,
 			Vector3.sumTwoVectors(
-				Vector3.multiplyVectorScalar(this.right, px),
-				Vector3.multiplyVectorScalar(this.trueUp, py)
+				Vector3.multiplyVectorScalar(horiz,u),
+				Vector3.multiplyVectorScalar(vert, v)
 			)
 		);
 		
+		let dir = Vector3.minusTwoVectors(p,this.eye);
 		return new Ray(this.eye, dir);
-		
 	}
 }
 
@@ -166,7 +203,7 @@ class Image{//This object stores image data
 class Ray{//This object stores the data for a ray
 	constructor(origin, direction){
 		this.origin = origin;
-		this.direction = Vector3.normalizeVector(dirction);
+		this.direction = Vector3.normalizeVector(direction);
 	}
 	at(t){
 		return Vector3.sumTwoVectors(this.origin,Vector3.multiplyVectorScalar(this.direction, t));
@@ -334,12 +371,12 @@ function readSceneMaterial()//This is the function that is called after user sel
 function assignImagesToScenes()//Initially the scene and images need to be read async, therefore, after reading the files, images should be assinged to billboards inside the scenes
 {
 	for (let s = 0; s < scenes.length; s++){
-		let currScene = scense[s];
+		let currScene = scenes[s];
 		if(!currScene){
 			continue;
 		}
-		for (let b = 0; b < scene.billboards.length; b++){
-			let bb = scene.billboards[b];
+		for (let b = 0; b < currScene.billboards.length; b++){
+			let bb = currScene.billboards[b];
 			if (!bb.imgFile){
 				continue;
 			}
@@ -352,9 +389,22 @@ function assignImagesToScenes()//Initially the scene and images need to be read 
 			}
 		}
 	}
-	if scense.length > 0){
+	if (scenes.length > 0){
 		currentScene = scenes[0];
 	}
+}
+
+function clamp255(x){
+	if (x < 0) return 0;
+	if (x > 255) return 255;
+	return x;
+}
+
+function floatColorToRGBA(arr){
+	let r = clamp255(Math.round(arr[0] * 255));
+	let g = clamp255(Math.round(arr[1] * 255));
+	let b = clamp255(Math.round(arr[2] * 255));
+	return new RGBAValue(r,g,b,255);
 }
 
 function parseScene(file_data)//A function to read JSON and put the data inside a scene class
@@ -376,74 +426,93 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 		return null;
 	}
 	
-	let camObj = obj.camera || obj.cam || obj;
-	let eyeArr = camObj.eye || camObj.position || [0,0,5];
-	let atArr = camObj.lookAt || camObj.at || [0,0,0];
-	let upArr = camObj.up || [0,1,0];
+	console.log(obj);
+	let eye = [0,0,5];
+	if (obj.eyeLocations && obj.eyeLocations.length >0){
+		eye = obj.eyeLocations[0];
+	}
+	console.log(eye);
+	let lookat = obj.lookat;
+	console.log(lookat);
+	let up = obj.up;
+	console.log(up);
+	let fov = obj.fov_angle;
+	console.log(fov);
+	let width = obj.width;
+	console.log(width);
+	let height = obj.height;
+	console.log(height);
 	
-	let fov = camObj.fov_angle || camObj.fovy || 60;
-	let width = camObj.width || 256;
-	let height = camObj.height || 256;
-	
-	let bg = camObj.background || camObj.bg || [0,0,0];
-	let bgColor = new RGBAValue(bg[0],bg[1],bg[2],255);
+	let bgArr = obj.DefaultColor || obj.DefaulColor;
+	console.log(bgArr);
+	let bgColor = new RGBAValue(bgArr[0],bgArr[1],bgArr[2],255);
+	console.log(bgColor);
 	
 	let camera = new Camera(
-		new Vector3(eyeArr[0], eyeArr[1], eyeArr[2]),
-		new Vector3(atArr[0], atArr[1], atArr[2]),
-		new Vector3(upArr[0], upArr[1], upArr[2]),
+		new Vector3(eye[0], eye[1], eye[2]),
+		new Vector3(lookat[0], lookat[1], lookat[2]),
+		new Vector3(up[0], up[1], up[2]),
 		fov,
 		width,
 		height,
 		bgColor
 	);
+	console.log(camera);
 	
 	let spheres = [];
-	let sphereList = obj.spheres || obj.objects || [];
+	let sphereList = obj.spheres || [];
 	for (let i = 0; i < sphereList.length; i++){
 		let currSphere = sphereList[i];
+		console.log("currSphere: ",currSphere);
 		if (!currSphere){
 			continue;
 		}
-		if (currSphere.type && currSphere.type.toLowerCase() != "sphere"){
-			continue;
-		}
-		let center = currSphere.center || currSphere.c || [0,0,0];
-		let radius = currSphere.radius || currSphere.r || 1;
-		let color = currSphere.color || currSphere.rgb || [255,0,0];
+		
+		let center = currSphere.center;
+		let radius = currSphere.radius;
+		let amb = currSphere.ambient;
+		let color = floatColorToRGBA(amb);
 		
 		spheres.push(new Sphere(
 			new Vector3(center[0],center[1],center[2]),
 			radius,
-			new RGBAValue(color[0],color[1],color[2],255)
+			color
 		));
 	}
+	console.log(spheres);
 	
 	let billboards = [];
-	let bbList = obj.billboards || obj.quads || [];
-	for (let i = 0; i <bbList.length; i++){
+	let bbList = obj.billboards || [];
+	for (let i = 0; i < bbList.length; i++){
 		let currBB = bbList[i];
+		console.log("currBB: ",currBB);
 		if (!currBB){
 			continue;
 		}
-		if (currBB.type && currBB.type.toLowerCase() != "billboard"){
+		
+		let LL = currBB.LowerLeft || currBB.lowerLeft || currBB.ll;
+		let UL = currBB.UpperLeft || currBB.upperLeft || currBB.ul;
+		let UR = currBB.UpperRight || currBB.upperRight || currBB.ur;
+		let imgFile = currBB.filename || currBB.imgFile || "";
+		
+		if(!LL || !UL || !UR){
 			continue;
 		}
-		let UL = currBB.UpperLeft || currBB.upperLeft || currBB.ul;
-		let LL = currBB.LowerLeft || currBB.lowerLeft || currBB.ll;
-		let UR = currBB.UpperRight || currBB.upperRight || currBB.ur;
-		let imgFile = currBB.imgFile || currBB.texture || currBB.image || "";
 		
-		if(LL && UL && UR){
-			billboards.push(new Billboard(
-				new Vector3(LL[0], LL[1], LL[2]),
-				new Vector3(UL[0], UL[1], UL[2]),
-				new Vector3(UR[0], UR[1], UR[2]),
-				imgFile,
-				null
-			));
-		}
+		let LLv = new Vector3(LL[0],LL[1],LL[2]);
+		let ULv = new Vector3(UL[0],UL[1],UL[2]);
+		let URv = new Vector3(UR[0],UR[1],UR[2]);
+		
+		//LR = LL + UR - UL
+		let LRv = Vector3.sumTwoVectors(LLv,Vector3.minusTwoVectors(URv,ULv));
+		
+		billboards.push(new Billboard(
+			LLv,ULv,URv,LRv,
+			imgFile,
+			null
+		));
 	}
+	console.log(billboards);
 	return new Scene(camera,spheres,billboards);
 }
 
