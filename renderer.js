@@ -82,6 +82,13 @@ class Vector3{//Required math functions are made from scratch
 	static getMagnitude(vec){
 		return Math.sqrt(Math.pow(vec.x,2)+Math.pow(vec.y,2)+Math.pow(vec.z,2));
 	}
+	static ComputeNormalVector(vec1, vec2){
+		
+		//Normal vector is 
+		let NormalVect = crossProduct(vec1, vec2);
+
+		return NormalVect;
+	}
 }
 
 class RGBAValue{
@@ -294,9 +301,62 @@ function shootRays()//This function shoots rays
 	
 }
 
-function findRayCollisionColor(ray)//Get color from ray casting
+function findRayCollisionColor(currentScene, ray)//Get color from ray casting
 {
+	let closestT = Infinity;
+	let hitObject = null;
+
+	// Test all Billboards 
+	for (let billboard in currentScene.Billboards){
 	
+		let t = getBillboardRayCollisionPoint(billboard, ray); 
+	
+		//We hit something and this beats previous closestT and object tpe gets continually updated to object in front
+		if ( t !==null && t > 0 && t < closestT){
+			closestT = t;
+			hitObject = billboard
+		}
+
+	}
+
+
+	//Test all Spheres
+	for (let sphere in currentScene.spheres){
+	
+		let t = getSphereRayCollisionPoint(sphere, ray);
+		
+		//We hit something and this beats previous closestT and object tpe gets continually updated to object in front
+		if (t !=null && t > 0 && t < closestT){
+			closestT = t;
+			hitObject = sphere;
+		}
+	} 
+
+	//Hit nothing return default background color
+	if (!hitObject){
+		return currentScene.camera.backgroundColor;
+	}
+
+
+	//Hit a sphere
+	if (hitObject instanceof Sphere){
+		//return sphere's color
+		return hitObject.color;
+	}
+
+
+	//Hit a billboard
+	if (hitObject instanceof Billboard){
+		return getBillboardPixelColor(hitObject, ray, closestT) //TODO implement this function
+	}
+
+	//Aposey Note: Did I cover all cases can something slip through. Do I need return currentScene.camera.backgroundColor again?
+
+	
+
+
+
+
 }
 
 function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
@@ -384,6 +444,8 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	{
 		return atT2;
 	}
+
+	//Aposey NOTE:  Does a tangentline where both values equal zro implying the very edge of the sphere is barely touching the camera, work in this condition?
 }//End getSphereRayCollisionPoint
 
 
