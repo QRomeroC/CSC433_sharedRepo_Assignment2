@@ -94,12 +94,7 @@ class RGBAValue{
 	}
 }
 
-function makeImagePlane(eye,forward,right,up,dist,fovDeg,imgWidth,imgHeight){
-	let aspect = imgWidth/imgHeight;
-	let fovRad = (fovDeg * Math.PI) / 180.0;
-	
-	let halfHeight = dist * Math.tan(fovRad / 2.0);
-	let halfWidth = halfHeight * aspect;
+function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	
 	let center = Vector3.sumTwoVectors(eye, Vector3.multiplyVectorScalar(forward,dist));
 	
@@ -139,17 +134,25 @@ class Camera{//This object stores camera vectors
 		
 		this.buildBasis();
 		
-		this.nearDist = 1.0;
-		this.farDist = 10.0;
+		let fovRad = (this.fov * Math.PI) / 180.0;
 		
-		this.nearPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
-										this.nearDist, this.fov, this.width, this.height);
-										
-		this.farPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
-									   this.farDist, this.fov, this.width, this.height);
+		//let halfHeight = this.height / 2.0;
+		//let halfWidth = this.width / 2.0;
+		let halfHeight = 1.0;
+		let halfWidth = (this.width / this.height) * halfHeight;
+		this.planeDist = halfHeight / Math.tan(fovRad / 2.0);
+		
+		
+		this.imagePlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
+										this.planeDist, halfWidth, halfHeight);
+		console.log("imagePlane(LL): ",this.imagePlane.LL);
+		console.log("imagePlane(UL): ",this.imagePlane.UL);
+		console.log("imagePlane(UR): ",this.imagePlane.UR);
+		console.log("imagePlane(LR): ",this.imagePlane.LR);
 	}
 	
 	buildBasis(){
+		//w,u,v (not to be confused with billboard w,u,v)
 		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
 		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.up));
 		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
@@ -163,12 +166,13 @@ class Camera{//This object stores camera vectors
 		let v = (pixelY + 0.5) / h;
 		
 		//point = UL + u(UR-UL) + v(LL-UL)
-		let LL = this.nearPlane.LL;
-		let UL = this.nearPlane.UL;
-		let UR = this.nearPlane.UR;
+		let LL = this.imagePlane.LL;
+		let UL = this.imagePlane.UL;
+		let UR = this.imagePlane.UR;
 		
 		let horiz = Vector3.minusTwoVectors(UR,UL);
 		let vert = Vector3.minusTwoVectors(LL,UL);
+		
 		
 		let p = Vector3.sumTwoVectors(
 			UL,
@@ -301,7 +305,89 @@ function findRayCollisionColor(ray)//Get color from ray casting
 
 function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 {
+//--------------------
+	//Steps from Slides
+	//--------------------
 
+	// A Ray is : P(t)=Origin+t*DirectionVector --> P(t) = O + tD
+		
+		// Equation for a sphere is: ∣P−C∣^2=r^2 
+	
+	// Substitute P in equation above with P(t) since it's a point at a certain  "t"
+	  
+		//∣(O+tD)−C∣^2=r^2
+
+	// Algebra it a little and rearrange it:
+	
+		//|(O-C+tD|^2=r^2
+	
+	// (O-C) is the origin - the center of the sphere to get a vector that goes from sphere to ray origin.
+	// For Simplicity we let the new vector OC fill in
+
+		// |(OC+tD|^2=r^2
+
+	// Expand it:
+
+		// (OC + tD)•(OC + tD)= r^2
+
+	// Distribute:
+
+		// OC•OC + OCtD + OCtD + tD^2 = r^2
+
+	// Combine Terms:
+
+		// OC•OC +2(OCtD) +tD^2 = r^2
+
+	// Rearrange into quadratic form (at^2 + bt + c)
+
+		// tD^2 + 2t(OC•D) + OC•OC -r^2
+		// ____   _______    __________
+		//  |       |            |
+		//  v       v            v
+		//  a       b            c
+
+	//Solve for roots of "t" using quadratic formula
+	
+	let org = ray.origin;
+	let dir = ray.direction;
+	let cent = input.center;
+	let radius = input.radius;
+
+	//Calulate OC
+	let originCentVect = Vector3.subtracVector(org, cent);
+
+	//Calulate a,b and c quadratc coefficients
+	let a = Vector3.dotProduct(dir,dir);
+	let b = 2.0 * Vector3.dotProduct(originCentVect, dir);
+	let c = Vector3.dotProduct(originCentVect, originCentVect) - (radius * radius);
+
+	//Everything under the root in the quadratic equation make next few lines easier to write and less unruly.
+	let discriminant = (b*b) - 4 * a * c;
+
+	//We have a complex number no real root, so ray does not intersect the sphere
+	if (discriminant < 0) 
+	{
+		 return null;
+	}
+
+	//Root the discrimnant save as var to make lines below easier to write
+	let sqrtDiscriminant = Math.sqrt(discriminant);
+
+	//The roots of the quadratic.  Note: atT1 will be the closest intersection and should be the pixel that is lit up
+	let atT1 = (-b - sqrtDiscriminant) / (2.0 * a);
+	let atT2 = (-b + sqrtDiscriminant) / (2.0 * a);
+
+	//Make sure values are greater than 1.  If values are negative they are behind the camera, so won't show up on the screen 
+	if (atT1 > 0 )
+	{
+		return atT1;
+	}
+
+	//If value 1 is negative but atT2 is positive the sphere may be over the camera and the second root will be on the screen.
+	if (atT2 > 0)
+	{
+		return atT2;
+	}
 }
 
 function readSceneMaterial()//This is the function that is called after user selects multiple files of images and scenes
@@ -410,14 +496,8 @@ function floatColorToRGBA(arr){
 function parseScene(file_data)//A function to read JSON and put the data inside a scene class
 {
 	let text = file_data;
-	
-	let firstBracket = text.indexOf("{");
-	let lastBracket = text.lastIndexOf("}");
-	if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket){
-		text = text.substring(firstBracket,lastBracket + 1);
-	}
-	
 	let obj = null;
+	
 	try{
 		obj = JSON.parse(text);
 	} catch(err){
@@ -457,7 +537,11 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 		height,
 		bgColor
 	);
-	console.log(camera);
+	console.log("camera = ",camera);
+	console.log("imagePlane(LL): ",camera.imagePlane.LL);
+	console.log("imagePlane(UL): ",camera.imagePlane.UL);
+	console.log("imagePlane(UR): ",camera.imagePlane.UR);
+	console.log("imagePlane(LR): ",camera.imagePlane.LR);
 	
 	let spheres = [];
 	let sphereList = obj.spheres || [];
