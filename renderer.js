@@ -336,7 +336,7 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 
 	// Rearrange into quadratic form (at^2 + bt + c)
 
-		// tD^2 + 2t(OC•D) + OC•OC -r^2
+		// tD^2 + 2t(OC•D) + OC•OC -r^2  (Note: D will be normalized so the coefficient for "a" will be 1)
 		// ____   _______    __________
 		//  |       |            |
 		//  v       v            v
@@ -350,10 +350,10 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	let radius = input.radius;
 
 	//Calulate OC
-	let originCentVect = Vector3.subtracVector(org, cent);
+	let originCentVect = Vector3.minusTwoVectors(org, cent);
 
 	//Calulate a,b and c quadratc coefficients
-	let a = Vector3.dotProduct(dir,dir);
+	let a = Vector3.dotProduct(dir,dir); //Technically can pull this out since a should be 1 by default.
 	let b = 2.0 * Vector3.dotProduct(originCentVect, dir);
 	let c = Vector3.dotProduct(originCentVect, originCentVect) - (radius * radius);
 
