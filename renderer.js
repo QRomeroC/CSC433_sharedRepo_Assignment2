@@ -120,7 +120,7 @@ class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
 		this.eye = eye;
 		this.lookAt = lookAt;
-		this.up = up;
+		this.worldUp = up;
 		this.fov = fovDeg;
 		this.width = width;
 		this.height = height;
@@ -161,7 +161,7 @@ class Camera{//This object stores camera vectors
 	buildBasis(){
 		//w,u,v (not to be confused with billboard w,u,v)
 		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
-		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.up));
+		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.worldUp));
 		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
 	}
 	
@@ -251,7 +251,9 @@ function drawScene() {
 	{
 		// Rendering can start here
 		if(!renderOnce){
+			console.log("drawing scene");
 			renderOnce = true;
+			console.log("shooting ray");
 			shootSingleCenterRay();
 			//shootRays();
 		}
@@ -306,7 +308,10 @@ function testCreateGIFLoop(){
 }
 //debug version of shootRays()
 function shootSingleCenterRay(){
+	console.log("single ray");
 	let camera = currentScene.camera;
+	console.log("camera", camera);
+	console.log("camera eye: ", camera.eye);
 	let cx = Math.floor(camera.width/2);
 	let cy = Math.floor(camera.height/2);
 	
@@ -346,13 +351,17 @@ function findRayCollisionColor(ray)//Get color from ray casting
 {
 	let candidateT = Infinity;
 	let candidateColor = null;
+	let candidateType = null;
 	
 	//billboards
 	for (let i = 0; i < currentScene.billboards.length; i++){
+		//console.log("checking hit");
 		let hit = getBillboardHit(currentScene.billboards[i],ray);
+		console.log("hit: ",hit);
 		if (hit && hit.t < candidateT){
 			candidateT = hit.t;
 			candidateColor = hit.color;
+			candidateType = "billboard";
 		}
 	}
 	
@@ -363,7 +372,14 @@ function findRayCollisionColor(ray)//Get color from ray casting
 		if (t != null && t < candidateT){
 			candidateT = t;
 			candidateColor = currSphere.amb;
+			candidateType = "spheres";
 		}
+	}
+	
+	if (candidateType == "spheres"){
+		//shading calls();
+	} else{
+		//shading calls();
 	}
 	
 	if (!candidateColor){
@@ -468,14 +484,14 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	let b = 2.0 * Vector3.dotProduct(oc, ray.direction);
 	let c = Vector3.dotProduct(oc,oc) - input.radius * input.radius;
 	
-	let disc = b*b - 4*a*c;
+	let disc = (b*b) - 4*a*c;
 	if (disc <0){
 		return null;
 	}
 	//solving quadratic, need to refactor to (c-eye-tr)(c-eye-tr)-r^2=0 form
 	let sqrtDisc = Math.sqrt(disc);
-	let t1 = (-b - sqrtDisc) / (2*a);
-	let t2 = (-b + sqrtDisc) / (2*a);
+	let t1 = (-b - sqrtDisc) / (2.0*a);
+	let t2 = (-b + sqrtDisc) / (2.0*a);
 	//find t s.t its "nearest"
 	let t = null;
 	if (t1 > 0.0001) {
@@ -488,10 +504,12 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 }
 
 function getBillboardHit(bb, ray){
+	//console.log("entered getBillboardHit");
+	/*
 	if (!bb.img){
 		return null;
 	}
-	
+	*/
 	let pLL = bb.LowerLeft;
 	let pUL = bb.UpperLeft;
 	let pUR = bb.UpperRight;
@@ -501,43 +519,55 @@ function getBillboardHit(bb, ray){
 	let edgeV = Vector3.minusTwoVectors(pUL, pLL);
 	
 	let w = Vector3.getMagnitude(edgeU);
+	console.log("w : ", w);
 	let h = Vector3.getMagnitude(edgeV);
+	console.log("h : ", h);
 	if (w <= 0.000001 || h <= 0.000001){
 		return null;
 	}
 	
 	let U = Vector3.multiplyVectorScalar(edgeU, 1.0 / w);
 	let V = Vector3.multiplyVectorScalar(edgeV, 1.0 / h);
+	console.log("U :", U);
+	console.log("V :", V);
 	
 	let n = Vector3.crossProduct(U, V);
 	n = Vector3.normalizeVector(n);
 	
 	//Ray-plane intersect == t = ((pLL - O)*n)/(D*n)
 	let denom = Vector3.dotProduct(ray.direction,n);
+	console.log("denom: ",denom);
 	//parallel case
 	if (Math.abs(denom) < 0.000001){
 		return null;
 	}
 	
 	let t = Vector3.dotProduct(Vector3.minusTwoVectors(pLL,ray.origin),n)/denom;
+	console.log("t: ",t);
 	//too close to camera case
 	if (t <= 0.0001){
 		return null;
 	}
 	
 	let q = ray.at(t);
-	
+	console.log("q: ",q);
 	//q = pLL + alpha*w*U + beta*h*V
 	let diff = Vector3.minusTwoVectors(q,pLL);
+	console.log("diff: ",diff);
 	let alpha = Vector3.dotProduct(diff,U)/w;
+	console.log("alpha: ",alpha);
 	let beta = Vector3.dotProduct(diff,V)/h;
+	console.log("beta: ",beta);
 	
 	//check inside
 	if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1){
 		return null;
 	}
 	
+	console.log("HIT Values",{denom,t,alpha,beta,q});
 	//texture and coordinate Checks
+	console.log("imageData: ", imageData);
+	console.log("bb img: ", bb.img);
 	let imgW = bb.img.width;
 	let imgH = bb.img.height;
 	
@@ -548,7 +578,7 @@ function getBillboardHit(bb, ray){
 	if (px < 0){
 		px = 0;
 	}
-	if (px > imgW){
+	if (px >= imgW){
 		px = imgW - 1;
 	}
 	if (py < 0){
@@ -559,7 +589,14 @@ function getBillboardHit(bb, ray){
 	}
 	
 	let idx = py * imgW + px;
-	let pixelData = bb.img.data[idx];
+	//let pixelData = bb.img.data[idx];
+	let pixelData = bb.img.data[100];
+	console.log("pixel[0] :", bb.img.data[0]);
+	console.log("pixel[1] :", bb.img.data[1]);
+	console.log("pixel[100] :", bb.img.data[100]);
+	console.log("pixel[1000] :", bb.img.data[1000]);
+	console.log("pixel[10000] :", bb.img.data[10000]);
+	console.log("pixel[100000] :", bb.img.data[10000]);
 	//ignore alphas that are 0 (transparent)
 	if (pixelData.a == 0){
 		return null;
@@ -587,6 +624,7 @@ function drawBitmapToCanvas(){
 
 function readSceneMaterial()//This is the function that is called after user selects multiple files of images and scenes
 {
+	console.log("entered readSceneMaterial");
 	if (input.files.length > 0) {
 		if(doneLoading==true)//This condition checks if this is the first time user has selected a scene or not. If doneLoading==true, then the user has selected a new scene while rendering
 		{
@@ -629,7 +667,7 @@ function readSceneMaterial()//This is the function that is called after user sel
 							if (err) throw err;
 							//console.log(png);
 							let img = parsePNG(png,fileName);
-
+							console.log("image: ", img);
 							imageData.push(img);
 							filesToRead[index]=false;//Javascript does not immediately read the files. It starts to read only when the function returns. A list of "to be read files" is required.
 						});
@@ -758,7 +796,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 			color
 		));
 	}
-	console.log(spheres);
+	console.log("spheres: ",spheres);
 	
 	let billboards = [];
 	let bbList = obj.billboards || [];
@@ -789,6 +827,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 			LLv,ULv,URv,LRv,
 			imgFile,
 			null
+			//parsePNG(imgFile,imgFile)
 		));
 	}
 	console.log(billboards);
@@ -810,6 +849,7 @@ function parsePNG(png,fileName){
 		readImageValues[counterMain]=new RGBAValue(r,g,b,a);
 		counterMain=counterMain+1;
 	}
+	//billboard image values
 	return new Image(readImageValues,width,height,fileName);
 }
 

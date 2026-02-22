@@ -1,6 +1,6 @@
 {
-    "eyeLocations": [[0,0,5]],
-    "lookat": [0, 0, 0],
+    "eyeLocations": [[0,0,0]],
+    "lookat": [0, 0, 5],
     "up": [0,1,0],
     "fov_angle": 50,
     "width": 200,
@@ -11,9 +11,9 @@
     "billboards": [
     {
         "type":"billboards",
-		"LowerLeft": [-1 , -1, 0], 
-        "UpperLeft": [-1, 1 , 0], 
-        "UpperRight": [1 , 1, 0],
+		"LowerLeft": [-1 , -1, 3], 
+        "UpperLeft": [-1, 1 , 3], 
+        "UpperRight": [1 , 1, 3],
         "filename": "chessboard.png"
     }]
 }
