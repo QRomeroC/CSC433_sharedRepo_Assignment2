@@ -519,7 +519,8 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 }
 
 function getBillboardHit(bb, ray){
-	//if (debug_mode)console.log("entered getBillboardHit");
+	if (debug_mode)console.log("entered getBillboardHit");
+	if (debug_mode)console.log("bb_imgFile: ",bb.imgFile, "bb_img_filename: ", bb.img.fileName);
 	/*
 	if (!bb.img){
 		return null;
