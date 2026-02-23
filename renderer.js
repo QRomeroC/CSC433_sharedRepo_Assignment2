@@ -174,7 +174,34 @@ function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 }//end of makeImagePlane() function.
 
 /*
-
+	Name: Camera
+	Purpose: class representing a camera. takes...
+	Arguments: Constructor expects:
+				eye - 
+				lookAt - 
+				worldUp - 
+				fov - 
+				width - 
+				height - 
+				backgroundColor - 
+				
+				constructor generates:
+				bitmap - 
+				foward -
+				right -
+				trueUp - 
+				fovRad - 
+				halfHeight - 
+				halfWidth -
+				planeDist - 
+				imagePlane - 
+				
+				class functions:
+				buildBasis()
+				
+				generateRay()
+				
+	Return: N/A - used in the construction of camera objects during scene parsing and to generate rays for camera
 */
 class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
@@ -186,6 +213,7 @@ class Camera{//This object stores camera vectors
 		this.height = height;
 		this.backgroundColor = backgroundColor || new RGBAValue(0,0,0,255);
 		
+		//bitmap declaration and background mapping
 		this.bitmap = [];
 		for (let x = 0; x < width; x++){
 			this.bitmap[x] = [];
@@ -198,18 +226,21 @@ class Camera{//This object stores camera vectors
 				);
 			}
 		}
-		
+		//calculate the camera basis (foward,right,up)
 		this.buildBasis();
-		
+		//get fov in radians
 		let fovRad = (this.fov * Math.PI) / 180.0;
 		
 		//let halfHeight = this.height / 2.0;
 		//let halfWidth = this.width / 2.0;
+		//half is 1 since image plane width/height should be 2 across
 		let halfHeight = 1.0;
-		let halfWidth = (this.width / this.height) * halfHeight;
+		//let halfWidth = (this.width / this.height) * halfHeight;
+		let halfWidth = 1.0;
+		//distance d is 1/tan(half of theta in radians)
 		this.planeDist = halfHeight / Math.tan(fovRad / 2.0);
 		
-		
+		//generate the image plane with camera specs
 		this.imagePlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
 										this.planeDist, halfWidth, halfHeight);
 		
@@ -219,7 +250,9 @@ class Camera{//This object stores camera vectors
 		if (debug_mode)console.log("imagePlane(LR): ",this.imagePlane.LR);
 		
 	}
-	
+	/*
+		buildBasis() - class function for calculating the camera basis
+	*/
 	buildBasis(){
 		//w,u,v (not to be confused with billboard w,u,v)
 		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
@@ -228,7 +261,10 @@ class Camera{//This object stores camera vectors
 		//this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
 		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.forward,this.right));
 	}
-	
+	/*
+		generateRay() - class function that for a given pixel (x,y) generate a new 
+		ray object with a origin at eye and direction calculated from point p - eye
+	*/
 	generateRay(pixelX, pixelY){
 		let w = this.width;
 		let h = this.height;
