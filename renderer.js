@@ -161,10 +161,10 @@ class Camera{//This object stores camera vectors
 	buildBasis(){
 		//w,u,v (not to be confused with billboard w,u,v)
 		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
-		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.worldUp));
-		//this.right = Vector3.normalizeVector(Vector3.crossProduct(this.worldUp,this.forward));
-		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
-		//this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.forward,this.right));
+		//this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.worldUp));
+		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.worldUp,this.forward));
+		//this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
+		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.forward,this.right));
 	}
 	
 	generateRay(pixelX, pixelY){
@@ -546,7 +546,7 @@ function getBillboardHit(bb, ray){
 	
 	let t = Vector3.dotProduct(Vector3.minusTwoVectors(pLL,ray.origin),n)/denom;
 	console.log("t: ",t);
-	//too close to camera case
+	//too close to camera case --- can adjust as needed
 	if (t <= 0.0001){
 		return null;
 	}
@@ -599,12 +599,14 @@ function getBillboardHit(bb, ray){
 	let pixelData = bb.img.data[idx];
 	console.log("px,py,idx: ", px,py,idx, "pixel: ",pixelData);
 	//let pixelData = bb.img.data[100];
+	/*
 	console.log("pixel[0] :", bb.img.data[0]);
 	console.log("pixel[1] :", bb.img.data[1]);
 	console.log("pixel[100] :", bb.img.data[100]);
 	console.log("pixel[1000] :", bb.img.data[1000]);
 	console.log("pixel[10000] :", bb.img.data[10000]);
 	console.log("pixel[100000] :", bb.img.data[10000]);
+	*/
 	//ignore alphas that are 0 (transparent)
 	if (pixelData.a == 0){
 		return null;
@@ -676,6 +678,7 @@ function readSceneMaterial()//This is the function that is called after user sel
 							//console.log(png);
 							let img = parsePNG(png,fileName);
 							console.log("image: ", img);
+							/*
 							let zeroAlphaCount = 0;
 						    for (let i = 0; i < img.data.length; i++){
 								if (img.data[i].a == 0){
@@ -683,6 +686,7 @@ function readSceneMaterial()//This is the function that is called after user sel
 								}
 							}
 							console.log("alpha count: ", zeroAlphaCount, "out of: ", img.data.length);
+							*/
 							imageData.push(img);
 							filesToRead[index]=false;//Javascript does not immediately read the files. It starts to read only when the function returns. A list of "to be read files" is required.
 						});
@@ -851,7 +855,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 
 // This function reads a PNG file into RGBA
 function parsePNG(png,fileName){
-	/*
+	
 	let rawValues = png.getRGBA8Array();
 	let width = png.getWidth();
 	let height = png.getHeight();
@@ -867,13 +871,16 @@ function parsePNG(png,fileName){
 	}
 	//billboard image values
 	return new Image(readImageValues,width,height,fileName);
-	*/
+	
+	/*
 	let raw = png.getRGBA8Array();
 	let width = png.getWidth();
 	let height = png.getHeight();
 	
 	let pixelCount = width * height;
 	let readImageValues = new Array(pixelCount);
+	console.log("rawLen: ", raw.length, "rawLen/4: ", raw.length/4);
+	console.log("pixelCount: ", pixelCount);
 	
 	for (let p = 0; p < pixelCount; p++){
 		//"word" size is 4, offset = r, offset+1,2,3 == g,b,a
@@ -888,7 +895,7 @@ function parsePNG(png,fileName){
 	
 	console.log("PNG len of raw: ", raw.length, "expected: ", pixelCount * 4);
 	console.log("first pixel: ", readImageValues[0]);
-
+	*/
 	return new Image(readImageValues, width, height, fileName);
 }
 
