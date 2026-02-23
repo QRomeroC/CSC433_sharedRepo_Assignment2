@@ -23,6 +23,7 @@ var ctx = canvas.getContext('2d');
 
 var scenes = [];
 var newSceneReq = false;
+var renderOnce = false;
 var currentScene;//Current rendering scene
 
 class Billboard {//This object stores a billboard
@@ -82,12 +83,11 @@ class Vector3{//Required math functions are made from scratch
 	static getMagnitude(vec){
 		return Math.sqrt(Math.pow(vec.x,2)+Math.pow(vec.y,2)+Math.pow(vec.z,2));
 	}
-	static ComputeNormalVector(vec1, vec2){
-		
-		//Normal vector is 
-		let NormalVect = crossProduct(vec1, vec2);
-
-		return NormalVect;
+	static subtractVector(a,b){
+		return new Vector3(a.x - b.x, a.y - b.y, a.z - b.z);
+	}
+	static lengthSquared(v){
+		return v.x * v.x + v.y * v.y + v.z * v.z;
 	}
 }
 
@@ -101,12 +101,7 @@ class RGBAValue{
 	}
 }
 
-function makeImagePlane(eye,forward,right,up,dist,fovDeg,imgWidth,imgHeight){
-	let aspect = imgWidth/imgHeight;
-	let fovRad = (fovDeg * Math.PI) / 180.0;
-	
-	let halfHeight = dist * Math.tan(fovRad / 2.0);
-	let halfWidth = halfHeight * aspect;
+function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	
 	let center = Vector3.sumTwoVectors(eye, Vector3.multiplyVectorScalar(forward,dist));
 	
@@ -125,7 +120,7 @@ class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
 		this.eye = eye;
 		this.lookAt = lookAt;
-		this.up = up;
+		this.worldUp = up;
 		this.fov = fovDeg;
 		this.width = width;
 		this.height = height;
@@ -146,20 +141,30 @@ class Camera{//This object stores camera vectors
 		
 		this.buildBasis();
 		
-		this.nearDist = 1.0;
-		this.farDist = 10.0;
+		let fovRad = (this.fov * Math.PI) / 180.0;
 		
-		this.nearPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
-										this.nearDist, this.fov, this.width, this.height);
-										
-		this.farPlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
-									   this.farDist, this.fov, this.width, this.height);
+		//let halfHeight = this.height / 2.0;
+		//let halfWidth = this.width / 2.0;
+		let halfHeight = 1.0;
+		let halfWidth = (this.width / this.height) * halfHeight;
+		this.planeDist = halfHeight / Math.tan(fovRad / 2.0);
+		
+		
+		this.imagePlane = makeImagePlane(this.eye, this.forward, this.right, this.trueUp,
+										this.planeDist, halfWidth, halfHeight);
+		console.log("imagePlane(LL): ",this.imagePlane.LL);
+		console.log("imagePlane(UL): ",this.imagePlane.UL);
+		console.log("imagePlane(UR): ",this.imagePlane.UR);
+		console.log("imagePlane(LR): ",this.imagePlane.LR);
 	}
 	
 	buildBasis(){
+		//w,u,v (not to be confused with billboard w,u,v)
 		this.forward = Vector3.normalizeVector(Vector3.minusTwoVectors(this.lookAt, this.eye));
-		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.up));
-		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
+		//this.right = Vector3.normalizeVector(Vector3.crossProduct(this.forward, this.worldUp));
+		this.right = Vector3.normalizeVector(Vector3.crossProduct(this.worldUp,this.forward));
+		//this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
+		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.forward,this.right));
 	}
 	
 	generateRay(pixelX, pixelY){
@@ -170,12 +175,13 @@ class Camera{//This object stores camera vectors
 		let v = (pixelY + 0.5) / h;
 		
 		//point = UL + u(UR-UL) + v(LL-UL)
-		let LL = this.nearPlane.LL;
-		let UL = this.nearPlane.UL;
-		let UR = this.nearPlane.UR;
+		let LL = this.imagePlane.LL;
+		let UL = this.imagePlane.UL;
+		let UR = this.imagePlane.UR;
 		
 		let horiz = Vector3.minusTwoVectors(UR,UL);
 		let vert = Vector3.minusTwoVectors(LL,UL);
+		
 		
 		let p = Vector3.sumTwoVectors(
 			UL,
@@ -246,6 +252,13 @@ function drawScene() {
 	}else if(doneLoading==true)//If scene is completely read
 	{
 		// Rendering can start here
+		if(!renderOnce){
+			console.log("drawing scene");
+			renderOnce = true;
+			console.log("shooting ray");
+			//shootSingleCenterRay();
+			shootRays();
+		}
 	}
 
 	// Call drawScene again next frame with delay to give user chance of interacting HTML GUI
@@ -295,73 +308,93 @@ function testCreateGIFLoop(){
 		encoder.download("download.gif");
 	}
 }
-
+//debug version of shootRays()
+function shootSingleCenterRay(){
+	console.log("single ray");
+	let camera = currentScene.camera;
+	console.log("camera", camera);
+	console.log("camera eye: ", camera.eye);
+	let cx = Math.floor(camera.width/2);
+	let cy = Math.floor(camera.height/2);
+	
+	let ray = camera.generateRay(cx,cy);
+	let color = findRayCollisionColor(ray);
+	//write to display a target Cross should see 
+	for (let dy = -3; dy <= 3; dy++){
+		let y = cy + dy;
+		if (y >= 0 && y < camera.height){
+			camera.bitmap[cx][y] = color;
+		}
+	}
+	for (let dx = -3; dx <= 3; dx++){
+		let x = cx + dx;
+		if (x >= 0 && x < camera.width){
+			camera.bitmap[x][cy] = color;
+		}
+	}
+	drawBitmapToCanvas();
+}
 function shootRays()//This function shoots rays
 {
+	let camera = currentScene.camera;
 	
+	for (let y = 0; y < camera.height; y++){
+		for (let x = 0; x < camera.width; x++){
+			let ray = camera.generateRay(x,y);
+			let color = findRayCollisionColor(ray);
+			camera.bitmap[x][y] = color;
+		}
+	}
+	
+	drawBitmapToCanvas();
 }
 
-function findRayCollisionColor(currentScene, ray)//Get color from ray casting
+function findRayCollisionColor(ray)//Get color from ray casting
 {
-	let closestT = Infinity;
-	let hitObject = null;
-
-	// Test all Billboards 
-	for (let billboard in currentScene.Billboards){
+	let candidateT = Infinity;
+	let candidateColor = null;
+	let candidateType = null;
 	
-		let t = getBillboardRayCollisionPoint(billboard, ray); 
-	
-		//We hit something and this beats previous closestT and object tpe gets continually updated to object in front
-		if ( t !==null && t > 0 && t < closestT){
-			closestT = t;
-			hitObject = billboard
+	//billboards
+	for (let i = 0; i < currentScene.billboards.length; i++){
+		//console.log("checking hit");
+		let hit = getBillboardHit(currentScene.billboards[i],ray);
+		console.log("hit: ",hit);
+		if (hit && hit.t < candidateT){
+			candidateT = hit.t;
+			candidateColor = hit.color;
+			candidateType = "billboard";
 		}
-
 	}
-
-
-	//Test all Spheres
-	for (let sphere in currentScene.spheres){
 	
-		let t = getSphereRayCollisionPoint(sphere, ray);
-		
-		//We hit something and this beats previous closestT and object tpe gets continually updated to object in front
-		if (t !=null && t > 0 && t < closestT){
-			closestT = t;
-			hitObject = sphere;
+	//spheres
+	for (let i = 0; i < currentScene.spheres.length; i++){
+		let currSphere = currentScene.spheres[i];
+		let t = getSphereRayCollisionPoint(currSphere, ray);
+		if (t != null && t < candidateT){
+			candidateT = t;
+			candidateColor = currSphere.amb;
+			candidateType = "spheres";
 		}
-	} 
-
-	//Hit nothing return default background color
-	if (!hitObject){
-		return currentScene.camera.backgroundColor;
 	}
-
-
-	//Hit a sphere
-	if (hitObject instanceof Sphere){
-		//return sphere's color
-		return hitObject.color;
-	}
-
-
-	//Hit a billboard
-	if (hitObject instanceof Billboard){
-		return getBillboardPixelColor(hitObject, ray, closestT) //TODO implement this function
-	}
-
-	//Aposey Note: Did I cover all cases can something slip through. Do I need return currentScene.camera.backgroundColor again?
-
 	
-
-
-
-
+	if (candidateType == "spheres"){
+		//shading calls();
+	} else{
+		//shading calls();
+	}
+	
+	if (!candidateColor){
+		//blue background
+		return new RGBAValue(0,0,255,255);
+	}
+	
+	return candidateColor;
 }
 
 function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 {
-	//--------------------
+//--------------------
 	//Steps from Slides
 	//--------------------
 
@@ -396,24 +429,24 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 
 	// Rearrange into quadratic form (at^2 + bt + c)
 
-		// tD^2 + 2t(OC•D) + OC•OC -r^2  (Note: D will be normalized so the coefficient for "a" will be 1)
+		// tD^2 + 2t(OC•D) + OC•OC -r^2
 		// ____   _______    __________
 		//  |       |            |
 		//  v       v            v
 		//  a       b            c
 
 	//Solve for roots of "t" using quadratic formula
-	
+	/*
 	let org = ray.origin;
 	let dir = ray.direction;
 	let cent = input.center;
 	let radius = input.radius;
 
 	//Calulate OC
-	let originCentVect = Vector3.minusTwoVectors(org, cent);
+	let originCentVect = Vector3.subtracVector(org, cent);
 
 	//Calulate a,b and c quadratc coefficients
-	let a = Vector3.dotProduct(dir,dir); //Technically can pull this out since a should be 1 by default.
+	let a = Vector3.dotProduct(dir,dir);
 	let b = 2.0 * Vector3.dotProduct(originCentVect, dir);
 	let c = Vector3.dotProduct(originCentVect, originCentVect) - (radius * radius);
 
@@ -444,14 +477,164 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	{
 		return atT2;
 	}
+	*/
+	//O-C
+	//input == sphere
+	let oc = Vector3.minusTwoVectors(ray.origin, input.center);
+	
+	let a = Vector3.dotProduct(ray.direction, ray.direction);//1 since normalized?
+	let b = 2.0 * Vector3.dotProduct(oc, ray.direction);
+	let c = Vector3.dotProduct(oc,oc) - input.radius * input.radius;
+	
+	let disc = (b*b) - 4*a*c;
+	if (disc <0){
+		return null;
+	}
+	//solving quadratic, need to refactor to (c-eye-tr)(c-eye-tr)-r^2=0 form
+	let sqrtDisc = Math.sqrt(disc);
+	let t1 = (-b - sqrtDisc) / (2.0*a);
+	let t2 = (-b + sqrtDisc) / (2.0*a);
+	//find t s.t its "nearest"
+	let t = null;
+	if (t1 > 0.0001) {
+		t = t1;
+	} else if (t2 > 0.0001){
+		t = t2;
+	}
+	
+	return t;
+}
 
-	//Aposey NOTE:  Does a tangentline where both values equal zro implying the very edge of the sphere is barely touching the camera, work in this condition?
-}//End getSphereRayCollisionPoint
+function getBillboardHit(bb, ray){
+	//console.log("entered getBillboardHit");
+	/*
+	if (!bb.img){
+		return null;
+	}
+	*/
+	let pLL = bb.LowerLeft;
+	let pUL = bb.UpperLeft;
+	let pUR = bb.UpperRight;
+	let pLR = bb.LowerRight;
+	//U-> x-axis and V-> y-axis
+	let edgeU = Vector3.minusTwoVectors(pLR, pLL);
+	let edgeV = Vector3.minusTwoVectors(pUL, pLL);
+	
+	let w = Vector3.getMagnitude(edgeU);
+	console.log("w : ", w);
+	let h = Vector3.getMagnitude(edgeV);
+	console.log("h : ", h);
+	if (w <= 0.000001 || h <= 0.000001){
+		return null;
+	}
+	
+	let U = Vector3.multiplyVectorScalar(edgeU, 1.0 / w);
+	let V = Vector3.multiplyVectorScalar(edgeV, 1.0 / h);
+	console.log("U :", U);
+	console.log("V :", V);
+	
+	let n = Vector3.crossProduct(U, V);
+	n = Vector3.normalizeVector(n);
+	
+	//Ray-plane intersect == t = ((pLL - O)*n)/(D*n)
+	let denom = Vector3.dotProduct(ray.direction,n);
+	console.log("denom: ",denom);
+	//parallel case
+	if (Math.abs(denom) < 0.000001){
+		return null;
+	}
+	
+	let t = Vector3.dotProduct(Vector3.minusTwoVectors(pLL,ray.origin),n)/denom;
+	console.log("t: ",t);
+	//too close to camera case --- can adjust as needed
+	if (t <= 0.0001){
+		return null;
+	}
+	
+	let q = ray.at(t);
+	console.log("q: ",q);
+	//q = pLL + alpha*w*U + beta*h*V
+	let diff = Vector3.minusTwoVectors(q,pLL);
+	console.log("diff: ",diff);
+	let alpha = Vector3.dotProduct(diff,U)/w;
+	console.log("alpha: ",alpha);
+	let beta = Vector3.dotProduct(diff,V)/h;
+	console.log("beta: ",beta);
+	
+	//check inside
+	if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1){
+		return null;
+	}
+	
+	console.log("HIT Values",{denom,t,alpha,beta,q});
+	//texture and coordinate Checks
+	console.log("imageData: ", imageData);
+	console.log("bb img: ", bb.img);
+	
+	
+	let imgW = bb.img.width;
+	let imgH = bb.img.height;
+	
+	let px = Math.floor(alpha * (imgW - 1));
+	let py = Math.floor((1.0 - beta) * (imgH - 1));
+	
+	//clamp
+	if (px < 0){
+		px = 0;
+	}
+	if (px >= imgW){
+		px = imgW - 1;
+	}
+	if (py < 0){
+		py = 0;
+	}
+	if (py >= imgH){
+		py = imgH - 1;
+	}
+	
+	let idx = py * imgW + px;
+	if (idx < 0 || idx >=bb.img.data.length){
+		return null;
+	}
+	let pixelData = bb.img.data[idx];
+	console.log("px,py,idx: ", px,py,idx, "pixel: ",pixelData);
+	//let pixelData = bb.img.data[100];
+	/*
+	console.log("pixel[0] :", bb.img.data[0]);
+	console.log("pixel[1] :", bb.img.data[1]);
+	console.log("pixel[100] :", bb.img.data[100]);
+	console.log("pixel[1000] :", bb.img.data[1000]);
+	console.log("pixel[10000] :", bb.img.data[10000]);
+	console.log("pixel[100000] :", bb.img.data[10000]);
+	*/
+	//ignore alphas that are 0 (transparent)
+	if (pixelData.a == 0){
+		return null;
+	}
+	
+	return { t: t, color: new RGBAValue(pixelData.r, pixelData.g, pixelData.b, 255) };
+}
 
-
+function drawBitmapToCanvas(){
+	let camera = currentScene.camera;
+	let imgData = ctx.createImageData(camera.width, camera.height);
+	
+	for (let y = 0; y < camera.height; y++){
+		for (let x = 0; x < camera.width; x++){
+			let pixel = camera.bitmap[x][y];
+			let idx = (y * camera.width + x) * 4;
+			imgData.data[idx] = pixel.r;
+			imgData.data[idx + 1] = pixel.g;
+			imgData.data[idx + 2] = pixel.b;
+			imgData.data[idx + 3] = 255;
+		}
+	}
+	ctx.putImageData(imgData,0,0);
+}
 
 function readSceneMaterial()//This is the function that is called after user selects multiple files of images and scenes
 {
+	console.log("entered readSceneMaterial");
 	if (input.files.length > 0) {
 		if(doneLoading==true)//This condition checks if this is the first time user has selected a scene or not. If doneLoading==true, then the user has selected a new scene while rendering
 		{
@@ -494,7 +677,16 @@ function readSceneMaterial()//This is the function that is called after user sel
 							if (err) throw err;
 							//console.log(png);
 							let img = parsePNG(png,fileName);
-
+							console.log("image: ", img);
+							/*
+							let zeroAlphaCount = 0;
+						    for (let i = 0; i < img.data.length; i++){
+								if (img.data[i].a == 0){
+									zeroAlphaCount++;
+								}
+							}
+							console.log("alpha count: ", zeroAlphaCount, "out of: ", img.data.length);
+							*/
 							imageData.push(img);
 							filesToRead[index]=false;//Javascript does not immediately read the files. It starts to read only when the function returns. A list of "to be read files" is required.
 						});
@@ -556,14 +748,8 @@ function floatColorToRGBA(arr){
 function parseScene(file_data)//A function to read JSON and put the data inside a scene class
 {
 	let text = file_data;
-	
-	let firstBracket = text.indexOf("{");
-	let lastBracket = text.lastIndexOf("}");
-	if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket){
-		text = text.substring(firstBracket,lastBracket + 1);
-	}
-	
 	let obj = null;
+	
 	try{
 		obj = JSON.parse(text);
 	} catch(err){
@@ -572,7 +758,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 		return null;
 	}
 	
-	console.log('obj= ${obj}');
+	console.log(obj);
 	let eye = [0,0,5];
 	if (obj.eyeLocations && obj.eyeLocations.length >0){
 		eye = obj.eyeLocations[0];
@@ -603,7 +789,11 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 		height,
 		bgColor
 	);
-	console.log(camera);
+	console.log("camera = ",camera);
+	console.log("imagePlane(LL): ",camera.imagePlane.LL);
+	console.log("imagePlane(UL): ",camera.imagePlane.UL);
+	console.log("imagePlane(UR): ",camera.imagePlane.UR);
+	console.log("imagePlane(LR): ",camera.imagePlane.LR);
 	
 	let spheres = [];
 	let sphereList = obj.spheres || [];
@@ -625,7 +815,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 			color
 		));
 	}
-	console.log(spheres);
+	console.log("spheres: ",spheres);
 	
 	let billboards = [];
 	let bbList = obj.billboards || [];
@@ -656,6 +846,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 			LLv,ULv,URv,LRv,
 			imgFile,
 			null
+			//parsePNG(imgFile,imgFile)
 		));
 	}
 	console.log(billboards);
@@ -664,6 +855,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 
 // This function reads a PNG file into RGBA
 function parsePNG(png,fileName){
+	
 	let rawValues = png.getRGBA8Array();
 	let width = png.getWidth();
 	let height = png.getHeight();
@@ -677,7 +869,34 @@ function parsePNG(png,fileName){
 		readImageValues[counterMain]=new RGBAValue(r,g,b,a);
 		counterMain=counterMain+1;
 	}
+	//billboard image values
 	return new Image(readImageValues,width,height,fileName);
+	
+	/*
+	let raw = png.getRGBA8Array();
+	let width = png.getWidth();
+	let height = png.getHeight();
+	
+	let pixelCount = width * height;
+	let readImageValues = new Array(pixelCount);
+	console.log("rawLen: ", raw.length, "rawLen/4: ", raw.length/4);
+	console.log("pixelCount: ", pixelCount);
+	
+	for (let p = 0; p < pixelCount; p++){
+		//"word" size is 4, offset = r, offset+1,2,3 == g,b,a
+		let base = p * 4;
+		let r = raw[base];
+		let g = raw[base + 1];
+		let b = raw[base + 2];
+		let a = raw[base + 3];
+		//write to rgba
+		readImageValues[p] = new RGBAValue(r,g,b,a);
+	}
+	
+	console.log("PNG len of raw: ", raw.length, "expected: ", pixelCount * 4);
+	console.log("first pixel: ", readImageValues[0]);
+	*/
+	return new Image(readImageValues, width, height, fileName);
 }
 
 function parsePPM(file_data,fileName){//The function to parse PPM file from homework 1.
