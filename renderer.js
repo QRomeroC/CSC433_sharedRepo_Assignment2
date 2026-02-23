@@ -36,6 +36,18 @@ class Billboard {//This object stores a billboard
 		this.LowerRight=LowerRight;
 		this.imgFile=imgFile;
 		this.img=img;
+		
+		this.edgeU = Vector3.minusTwoVectors(this.LowerRight, this.LowerLeft);
+		this.edgeV = Vector3.minusTwoVectors(this.UpperLeft, this.LowerLeft);
+	
+		this.w = Vector3.getMagnitude(this.edgeU);	
+		if (debug_mode)console.log("w : ", this.w);
+		this.h = Vector3.getMagnitude(this.edgeV);
+		if (debug_mode)console.log("h : ", this.h);
+		this.U = Vector3.multiplyVectorScalar(this.edgeU, 1.0 / this.w);
+		this.V = Vector3.multiplyVectorScalar(this.edgeV, 1.0 / this.h);
+		if (debug_mode)console.log("U :", this.U);
+		if (debug_mode)console.log("V :", this.V);
 	}
 }
 
@@ -530,7 +542,12 @@ function getBillboardHit(bb, ray){
 	let pUL = bb.UpperLeft;
 	let pUR = bb.UpperRight;
 	let pLR = bb.LowerRight;
+	//if w and h are too small then bb plane is "edge" on facing the image plane
+	if (bb.w <= 0.000001 || bb.h <= 0.000001){
+		return null;
+	}
 	//U-> x-axis and V-> y-axis
+	/*
 	let edgeU = Vector3.minusTwoVectors(pLR, pLL);
 	let edgeV = Vector3.minusTwoVectors(pUL, pLL);
 	
@@ -546,7 +563,9 @@ function getBillboardHit(bb, ray){
 	let V = Vector3.multiplyVectorScalar(edgeV, 1.0 / h);
 	if (debug_mode)console.log("U :", U);
 	if (debug_mode)console.log("V :", V);
-	
+	*/
+	let U = bb.U;
+	let V = bb.V
 	let n = Vector3.crossProduct(U, V);
 	n = Vector3.normalizeVector(n);
 	
@@ -575,9 +594,9 @@ function getBillboardHit(bb, ray){
 	//q = pLL + alpha*w*U + beta*h*V
 	let diff = Vector3.minusTwoVectors(q,pLL);
 	if (debug_mode)console.log("diff: ",diff);
-	let alpha = Vector3.dotProduct(diff,U)/w;
+	let alpha = Vector3.dotProduct(diff,U)/bb.w;
 	if (debug_mode)console.log("alpha: ",alpha);
-	let beta = Vector3.dotProduct(diff,V)/h;
+	let beta = Vector3.dotProduct(diff,V)/bb.h;
 	if (debug_mode)console.log("beta: ",beta);
 	
 	//check inside
