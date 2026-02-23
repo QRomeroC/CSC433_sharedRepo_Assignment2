@@ -288,42 +288,112 @@ Test GIF create function and global variables. Feel free to revise this for your
 
 var gifT=0;// The animation time that is between 0 and 1
 var encoder;// The encoder to save GIF file
+var gifFrame = 0;
+var gifTotalFrames = 30;
+
+// function createGif(){
+//     document.getElementById("canvas").setAttribute("width",100);
+// 	document.getElementById("canvas").setAttribute("height",100);
+// 	gifT=0;
+// 	encoder = new GIFEncoder();
+// 	encoder.setRepeat(0); //0  -> loop forever
+// 	encoder.setDelay(500); //go to next frame every n milliseconds
+// 	encoder.start();
+// 	testCreateGIFLoop();
+// }
+
+
 
 function createGif(){
-    document.getElementById("canvas").setAttribute("width",100);
-	document.getElementById("canvas").setAttribute("height",100);
-	gifT=0;
-	encoder = new GIFEncoder();
-	encoder.setRepeat(0); //0  -> loop forever
-	encoder.setDelay(500); //go to next frame every n milliseconds
-	encoder.start();
-	testCreateGIFLoop();
+  if (!doneLoading){
+    console.warn("Scene not loaded yet.");
+    return;
+  }
+
+  const camera = currentScene.camera;
+
+  // Use your scene resolution (or set smaller for faster GIFs)
+  document.getElementById("canvas").setAttribute("width", camera.width);
+  document.getElementById("canvas").setAttribute("height", camera.height);
+
+  gifFrame = 0;
+
+  encoder = new GIFEncoder();
+  encoder.setRepeat(0);
+  encoder.setDelay(100); // 10 fps
+  encoder.start();
+
+  testCreateGIFLoop();
 }
 
 /*
 Test GIF create function and global variables. Feel free to revise this for your assingment.
 */
 
+// function testCreateGIFLoop(){
+// 	if(gifT<1){
+// 		let imgData=ctx.createImageData(100,100);
+// 		for(let i=0;i<100;i++){
+// 			for(let j=0;j<100;j++){
+// 				imgData.data[((i*100)+j)*4]=i*2;
+// 				imgData.data[((i*100)+j)*4+1]=j+Math.sin(gifT*10);
+// 				imgData.data[((i*100)+j)*4+2]=i+gifT*100;
+// 				imgData.data[((i*100)+j)*4+3]=255;
+// 			}	
+// 		}
+// 		ctx.putImageData(imgData,0,0);//Show image on canvas
+// 		encoder.addFrame(ctx);
+// 		gifT=gifT+0.1;
+// 		setTimeout(function() { requestAnimationFrame(testCreateGIFLoop)}, 100);
+// 	}else{
+// 		encoder.finish();
+// 		encoder.download("download.gif");
+// 	}
+//}
+
 function testCreateGIFLoop(){
-	if(gifT<1){
-		let imgData=ctx.createImageData(100,100);
-		for(let i=0;i<100;i++){
-			for(let j=0;j<100;j++){
-				imgData.data[((i*100)+j)*4]=i*2;
-				imgData.data[((i*100)+j)*4+1]=j+Math.sin(gifT*10);
-				imgData.data[((i*100)+j)*4+2]=i+gifT*100;
-				imgData.data[((i*100)+j)*4+3]=255;
-			}	
-		}
-		ctx.putImageData(imgData,0,0);//Show image on canvas
-		encoder.addFrame(ctx);
-		gifT=gifT+0.1;
-		setTimeout(function() { requestAnimationFrame(testCreateGIFLoop)}, 100);
-	}else{
-		encoder.finish();
-		encoder.download("download.gif");
-	}
+  if (gifFrame < gifTotalFrames){
+
+    const camera = currentScene.camera;
+
+    // t in [0,1]
+    const t = gifFrame / (gifTotalFrames - 1);
+
+    // Example animation: orbit camera around origin
+    const radius = 10;
+    const angle = t * Math.PI * 2;
+    camera.eye = new Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    camera.lookAt = new Vector3(0, 0, 0);
+
+    // Rebuild camera basis + image plane (critical!)
+    camera.buildBasis();
+
+    const fovRad = (camera.fov * Math.PI) / 180.0;
+    const halfHeight = 1.0;
+    const halfWidth = (camera.width / camera.height) * halfHeight;
+    camera.planeDist = halfHeight / Math.tan(fovRad / 2.0);
+    camera.imagePlane = makeImagePlane(
+      camera.eye, camera.forward, camera.right, camera.trueUp,
+      camera.planeDist, halfWidth, halfHeight
+    );
+
+    // Render this frame
+    shootRays();          // fills camera.bitmap and draws to canvas
+    encoder.addFrame(ctx);
+
+    gifFrame++;
+
+    // Schedule next frame
+    setTimeout(() => requestAnimationFrame(testCreateGIFLoop), 0);
+
+  } else {
+    encoder.finish();
+    encoder.download("renderedScene.gif");
+  }
 }
+
+
+
 //debug version of shootRays()
 function shootSingleCenterRay(){
 	if (debug_mode)console.log("single ray");
@@ -531,13 +601,16 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 }
 
 function getBillboardHit(bb, ray){
-	if (debug_mode)console.log("entered getBillboardHit");
-	if (debug_mode)console.log("bb_imgFile: ",bb.imgFile, "bb_img_filename: ", bb.img.fileName);
-	/*
-	if (!bb.img){
+
+	
+	if (!bb.img || !bb.img){
 		return null;
 	}
-	*/
+	
+
+	if (debug_mode)console.log("entered getBillboardHit");
+	if (debug_mode)console.log("bb_imgFile: ",bb.imgFile, "bb_img_filename: ", bb.img.fileName);
+	
 	let pLL = bb.LowerLeft;
 	let pUL = bb.UpperLeft;
 	let pUR = bb.UpperRight;
@@ -762,6 +835,10 @@ function assignImagesToScenes()//Initially the scene and images need to be read 
 					bb.img = imageData[i];
 					break;
 				}
+			}
+
+			if(!bb.img){
+				console.warn("BB Imagae not loaded: ", bb.imgFile, "Make sure to pick this png in the file selection process.");
 			}
 		}
 	}
