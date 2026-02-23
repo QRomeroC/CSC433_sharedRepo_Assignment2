@@ -7,7 +7,7 @@ Feel free to change this file and add/remove variables and functions
 Template author: Amir Mohammad Esmaieeli Sikaroudi
 */
 
-//All HTML (GUI) components
+//All HTML (GUI) components and globals
 var canvas = document.getElementById('canvas');
 var input = document.getElementById("load_scene");
 var saveButton = document.getElementById("save_scene_picture");
@@ -22,12 +22,30 @@ var canvas = document.getElementById('canvas');
 var ctx = canvas.getContext('2d');
 
 var scenes = [];
-var newSceneReq = false;
-var renderOnce = false;
+var newSceneReq = false;//not implamented since not interperlating two camera points
+var renderedOnce = false;//may depercate, was worried about shooting rays after render
 var currentScene;//Current rendering scene
-
+//debug flag
 const debug_mode = false;
-
+const single_test = true;
+const single_shot = false;
+/*
+--------------------Start of class declarations-------------------
+*/
+/*
+	Name: Billboard
+	Purpose: class representing a billboard, takes 4 vec3 coords for LL,UL,UR,LR.
+	        calculates U,V for hit detection. Also takes a file name and Image object.
+	Arguments: Constructor expects:
+				LL,UL,UR,LR - Vector3 objects with coordinates for corners
+				imgFile - a string that represents the file name of the image mapped to bb
+				img - an Image object with parts: 
+					readImageValues - a flat array of RGBAValue objects (shape RIV.r,RIV.g,RIV.b,RIV.a)
+					width - integer that represents width of billboard
+					height - integer that represents height of billboard
+					fileName - string that represents the file name of the image
+	Returns: N/A - used in the construction of billboard objects during scene parsing
+*/
 class Billboard {//This object stores a billboard
 	constructor(LowerLeft,UpperLeft,UpperRight,LowerRight,imgFile,img){
 		this.LowerLeft=LowerLeft;
@@ -36,29 +54,44 @@ class Billboard {//This object stores a billboard
 		this.LowerRight=LowerRight;
 		this.imgFile=imgFile;
 		this.img=img;
-		
+		//edgeU = x-axis
 		this.edgeU = Vector3.minusTwoVectors(this.LowerRight, this.LowerLeft);
+		//edgeV = y-axis
 		this.edgeV = Vector3.minusTwoVectors(this.UpperLeft, this.LowerLeft);
-	
+		//w = width
 		this.w = Vector3.getMagnitude(this.edgeU);	
 		if (debug_mode)console.log("w : ", this.w);
+		//h = height
 		this.h = Vector3.getMagnitude(this.edgeV);
 		if (debug_mode)console.log("h : ", this.h);
+		//U,V are normalized unit vectors along x and y axis
 		this.U = Vector3.multiplyVectorScalar(this.edgeU, 1.0 / this.w);
 		this.V = Vector3.multiplyVectorScalar(this.edgeV, 1.0 / this.h);
 		if (debug_mode)console.log("U :", this.U);
 		if (debug_mode)console.log("V :", this.V);
 	}
-}
+}//end of billboard class
 
+/*
+	Name: Sphere
+	Purpose: class representing a shpere. takes a single vec3 for center point,
+			a float that represents the radius, and a RGBAValue array having converted
+			3 float values into there RGBA Values.
+	Arguments: Constructor expects:
+				center - Vector3 with C[0],C[1],C[2] parsed from json
+				radius - float representing radius of Sphere
+				amb - a RGBAValue array with values converted from floats ([0.00,0.00,0.00]->[r,g,b,a])
+	Return: N/A - used in the construction of sphere objects during scene parsing
+*/
 class Sphere {//This object stores a sphere
 	constructor(center,radius,ambient){
 		this.center=center;
 		this.radius=radius;
 		this.amb = ambient;
 	}
-}
+}//end of Sphere class
 
+//Vector 3 class given - contains math for matrices and vectors
 class Vector3{//Required math functions are made from scratch
 	constructor(x,y,z){
 		this.x=x;
@@ -97,14 +130,9 @@ class Vector3{//Required math functions are made from scratch
 	static getMagnitude(vec){
 		return Math.sqrt(Math.pow(vec.x,2)+Math.pow(vec.y,2)+Math.pow(vec.z,2));
 	}
-	static subtractVector(a,b){
-		return new Vector3(a.x - b.x, a.y - b.y, a.z - b.z);
-	}
-	static lengthSquared(v){
-		return v.x * v.x + v.y * v.y + v.z * v.z;
-	}
-}
+}//end of Vector3 class
 
+//RGBAValue class given - used to assign Red,Green,Blue,Alpha values
 class RGBAValue{
 	constructor(r,g,b,a)
 	{
@@ -113,23 +141,41 @@ class RGBAValue{
 		this.b=b;
 		this.a=a;
 	}
-}
+}//end of RGBAValue class
 
+
+/*
+	Name: makeImagePlane
+	Purpose: used during camera object construction. uses camera fields/members to
+			construct a image plane at distance D from camera eye
+	Arguments: 
+			eye - Vector3 coordaniate for camera eye
+			forward - normalzied vector representing the foward direction of eye
+			right - normalized vector representing the right direction of eye
+			up - normalized vector representing the up direction of eye, not worldUp
+			dist - float that represents the distance from eye based on FOV of camera eye
+			halfWidth,halfHeight - floats that represent half values of the image plane
+	Return: N/A - used in the construction of a camera object to initialized the image plane
+				for camera object being constructed.
+*/
 function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	
 	let center = Vector3.sumTwoVectors(eye, Vector3.multiplyVectorScalar(forward,dist));
 	
 	let upPart = Vector3.multiplyVectorScalar(up,halfHeight);
 	let rightPart = Vector3.multiplyVectorScalar(right,halfWidth);
-	
+	//build corners from "U/Right Component" and "V/Up Component"
 	let LL = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,Vector3.negate(upPart)),Vector3.negate(rightPart));
 	let UL = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,upPart),Vector3.negate(rightPart));
 	let UR = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,upPart),rightPart);
 	let LR = Vector3.sumTwoVectors(Vector3.sumTwoVectors(center,Vector3.negate(upPart)),rightPart);
-	
+	//return image plane struct/object with center, 4 corners, and distance
 	return { center: center, LL: LL, UL: UL, UR: UR, LR: LR, dist: dist };
-}
+}//end of makeImagePlane() function.
 
+/*
+
+*/
 class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
 		this.eye = eye;
@@ -268,13 +314,21 @@ function drawScene() {
 	}else if(doneLoading==true)//If scene is completely read
 	{
 		// Rendering can start here
-		if(!renderOnce){
+		/*
+		if(!renderedOnce && single_test){
 			if (debug_mode)console.log("drawing scene");
-			renderOnce = true;
+			renderedOnce = true;
 			if (debug_mode)console.log("shooting ray");
-			//shootSingleCenterRay();
+			if (single_shot){
+				shootSingleCenterRay();
+			} else {
+				shootRays();
+			}
+		} else {
 			shootRays();
 		}
+		*/
+		shootRays();
 	}
 
 	// Call drawScene again next frame with delay to give user chance of interacting HTML GUI
