@@ -25,6 +25,8 @@ var scenes = [];
 var newSceneReq = false;//not implamented since not interperlating two camera points
 var renderedOnce = false;//may depercate, was worried about shooting rays after render
 var currentScene;//Current rendering scene
+var testAmbient;
+
 //debug flag
 const debug_mode = false;
 const single_test = true;
@@ -155,8 +157,7 @@ class RGBAValue{
 			up - normalized vector representing the up direction of eye, not worldUp
 			dist - float that represents the distance from eye based on FOV of camera eye
 			halfWidth,halfHeight - floats that represent half values of the image plane
-	Return: N/A - used in the construction of a camera object to initialized the image plane
-				for camera object being constructed.
+	Return: image plane object - shape {center:center,LL:LL,UL:UL,UR:UR,LR:LR,dist:dist}
 */
 function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	
@@ -177,40 +178,42 @@ function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	Name: Camera
 	Purpose: class representing a camera. takes...
 	Arguments: Constructor expects:
-				eye - 
-				lookAt - 
-				worldUp - 
-				fov - 
-				width - 
-				height - 
-				backgroundColor - 
+				eye - Vec3 object with coordaniate (eye[0],eye[1],eye[2])
+				lookAt - Vec3 object with coords (lookat[0],lookat[1],lookat[2])
+				worldUp - Vec3 object with coords (up[0],up[1],up[2])
+				fov - integer representing the field of view (degrees)
+				width - integer repesenting width of image plane
+				height - integer representing height of image plane
+				backgroundColor - a RGBAValue object (JSON.bgColor[0],JSON.bgColor[1],JSON.bgColor[2],255)
 				
 				constructor generates:
-				bitmap - 
-				foward -
-				right -
-				trueUp - 
-				fovRad - 
-				halfHeight - 
-				halfWidth -
-				planeDist - 
-				imagePlane - 
+				bitmap - bitmap[x==height][y==width] - maps bg.r,bg.g,bg.b,255
+				foward - normalized vector calculated in buildBases() - represents foward of eye
+				right - normalized vector calculated in buildBases() - represents right of eye
+				trueUp - normalized vector calculated in buildBases() - represents up of eye (differ from worldUp)
+				fovRad - field of view in radians
+				halfHeight - half of image plane height (expected 1) 
+				halfWidth - half of image plane width (same as height)
+				planeDist - calculated from half trangle made from eye and fov
+				imagePlane - the image plane object given by makeImagePlane()
+					shape({center:center,LL:LL,UL:UL,UR:UR,LR:LR,dist: dist}
 				
 				class functions:
-				buildBasis()
+				buildBasis() - uses 
 				
 				generateRay()
 				
 	Return: N/A - used in the construction of camera objects during scene parsing and to generate rays for camera
 */
 class Camera{//This object stores camera vectors
-	constructor(eye, lookAt, up, fovDeg, width, height, backgroundColor){
+	constructor(eye, lookAt, up, fovDeg, width, height, sunLocation, backgroundColor){
 		this.eye = eye;
 		this.lookAt = lookAt;
 		this.worldUp = up;
 		this.fov = fovDeg;
 		this.width = width;
 		this.height = height;
+		this.sunLocation = sunLocation
 		this.backgroundColor = backgroundColor || new RGBAValue(0,0,0,255);
 		
 		//bitmap declaration and background mapping
@@ -235,8 +238,9 @@ class Camera{//This object stores camera vectors
 		//let halfWidth = this.width / 2.0;
 		//half is 1 since image plane width/height should be 2 across
 		let halfHeight = 1.0;
-		//let halfWidth = (this.width / this.height) * halfHeight;
 		let halfWidth = 1.0;
+		//let halfWidth = (this.width / this.height) * halfHeight;
+		
 		//distance d is 1/tan(half of theta in radians)
 		this.planeDist = halfHeight / Math.tan(fovRad / 2.0);
 		
@@ -290,6 +294,7 @@ class Camera{//This object stores camera vectors
 		);
 		
 		let dir = Vector3.minusTwoVectors(p,this.eye);
+		//ray has an origin and direction
 		return new Ray(this.eye, dir);
 	}
 }
@@ -551,7 +556,12 @@ function findRayCollisionColor(ray)//Get color from ray casting
 		let t = getSphereRayCollisionPoint(currSphere, ray);
 		if (t != null && t < candidateT){
 			candidateT = t;
-			candidateColor = currSphere.amb;
+			candidateColor = new RGBAValue(currSphere.amb.r, currSphere.amb.g,currSphere.amb.b,currSphere.amb.a);
+			difusedValue = getDefused(ray, currSphere, t)
+			candidateColor.r = clamp255(candidateColor.r + difusedValue);
+			candidateColor.g = clamp255(candidateColor.g + difusedValue);
+			candidateColor.b = clamp255(candidateColor.b + difusedValue);
+			
 			candidateType = "spheres";
 		}
 	}
@@ -570,6 +580,21 @@ function findRayCollisionColor(ray)//Get color from ray casting
 	return candidateColor;
 }
 
+function getDefused(ray, currSphere, t){
+	let direction = ray.direction;
+	let center = currSphere.center;
+	let sunLocation = currentScene.camera.sunLocation;
+	
+	let p =  Vector3.multiplyVectorScalar(direction,t);
+	
+	let n = Vector3.normalizeVector(Vector3.minusTwoVectors(center,p));
+	let v = Vector3.normalizeVector(Vector3.minusTwoVectors(p,sunLocation));
+	
+	let difused = Vector3.dotProduct(n,v);
+	difused = difused * 255;
+	
+	return difused;
+}
 function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 {
 //--------------------
@@ -979,6 +1004,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 	if (debug_mode)console.log(width);
 	let height = obj.height;
 	if (debug_mode)console.log(height);
+	let sunLocation = obj.SunLocation || obj.sunLocation;
 	
 	let bgArr = obj.DefaultColor || obj.DefaulColor;
 	if (debug_mode)console.log(bgArr);
@@ -992,6 +1018,7 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 		fov,
 		width,
 		height,
+		new Vector3(sunLocation[0],sunLocation[1],sunLocation[2]),
 		bgColor
 	);
 	if (debug_mode)console.log("camera = ",camera);

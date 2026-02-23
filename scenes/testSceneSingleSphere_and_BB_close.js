@@ -3,10 +3,10 @@
     "lookat": [0, 0, 5],
     "up": [0,1,0],
     "fov_angle": 50,
-    "width": 200,
-    "height": 200,
+    "width": 800,
+    "height": 800,
     "DefaultColor":[0,0,0],
-    "SunLocation":[-900,900,-50],
+    "SunLocation":[750,500,-50],
     "spheres": [
 	{
         "type": "sphere",
