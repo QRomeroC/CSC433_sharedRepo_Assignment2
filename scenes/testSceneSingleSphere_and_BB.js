@@ -19,13 +19,7 @@
         "center": [0.05,0.05,2.25],
         "radius": 0.25,
         "ambient": [0.99, 0.09,0.09]
-    },
-	{
-		"type": "sphere",
-		"center": [0.5,0.5,0.5],
-		"radius": 1,
-		"ambient": [0,0,0]
-	}
+    }
 	],
     "billboards": [
 	 {

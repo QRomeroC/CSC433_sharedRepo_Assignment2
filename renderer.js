@@ -496,9 +496,16 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	let t2 = (-b + sqrtDisc) / (2.0*a);
 	//find t s.t its "nearest"
 	let t = null;
+	/*
 	if (t1 > 0.0001) {
 		t = t1;
 	} else if (t2 > 0.0001){
+		t = t2;
+	}
+	*/
+	if (t1 >= currentScene.camera.planeDist){
+		t = t1;
+	} else if (t2 >= currentScene.camera.planeDist){
 		t = t2;
 	}
 	
@@ -547,7 +554,12 @@ function getBillboardHit(bb, ray){
 	let t = Vector3.dotProduct(Vector3.minusTwoVectors(pLL,ray.origin),n)/denom;
 	console.log("t: ",t);
 	//too close to camera case --- can adjust as needed
+	/*
 	if (t <= 0.0001){
+		return null;
+	}
+	*/
+	if (t < currentScene.camera.planeDist){
 		return null;
 	}
 	
