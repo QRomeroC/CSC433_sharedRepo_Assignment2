@@ -1,7 +1,7 @@
 /*
-Author:
+Authors: Cesar Quihuis-Romero & Aaron Posey
 CS533, Homework 2
-12 February 2025
+23 February 2025
 Extend this header for your submission
 Feel free to change this file and add/remove variables and functions
 Template author: Amir Mohammad Esmaieeli Sikaroudi
@@ -31,10 +31,15 @@ var testAmbient;
 const debug_mode = false;
 const single_test = true;
 const single_shot = false;
+
 /*
---------------------Start of class declarations-------------------
+======================================================================================================
+				--------------------Start of class declarations------------------
+======================================================================================================
 */
+
 /*
+=========================================================================================================
 	Name: Billboard
 	Purpose: class representing a billboard, takes 4 vec3 coords for LL,UL,UR,LR.
 	        calculates U,V for hit detection. Also takes a file name and Image object.
@@ -47,8 +52,9 @@ const single_shot = false;
 					height - integer that represents height of billboard
 					fileName - string that represents the file name of the image
 	Returns: N/A - used in the construction of billboard objects during scene parsing
+========================================================================================================
 */
-class Billboard {//This object stores a billboard
+class Billboard {
 	constructor(LowerLeft,UpperLeft,UpperRight,LowerRight,imgFile,img){
 		this.LowerLeft=LowerLeft;
 		this.UpperLeft=UpperLeft;
@@ -74,7 +80,10 @@ class Billboard {//This object stores a billboard
 	}
 }//end of billboard class
 
+
+
 /*
+========================================================================================================
 	Name: Sphere
 	Purpose: class representing a shpere. takes a single vec3 for center point,
 			a float that represents the radius, and a RGBAValue array having converted
@@ -84,8 +93,9 @@ class Billboard {//This object stores a billboard
 				radius - float representing radius of Sphere
 				amb - a RGBAValue array with values converted from floats ([0.00,0.00,0.00]->[r,g,b,a])
 	Return: N/A - used in the construction of sphere objects during scene parsing
+========================================================================================================
 */
-class Sphere {//This object stores a sphere
+class Sphere {
 	constructor(center,radius,ambient){
 		this.center=center;
 		this.radius=radius;
@@ -93,8 +103,23 @@ class Sphere {//This object stores a sphere
 	}
 }//end of Sphere class
 
-//Vector 3 class given - contains math for matrices and vectors
-class Vector3{//Required math functions are made from scratch
+
+/*
+========================================================================================================
+	Name: Vector3
+	Purpose: class representing a 3d vector. Takes a 3d point x,y,z vals. Offers a library to do basic 
+			 vector math i.e. add, subtract, multiply, dot and cross product with vectors
+	
+	Arguments: Constructor expects:
+				x value on the x-Axis in 3d space
+				y value on the x-Axis in 3d space
+				z value on the x-Axis in 3d space
+				
+	Return: N/A - used in the construction of sphere objects during scene parsing
+========================================================================================================
+*/
+
+class Vector3{
 	constructor(x,y,z){
 		this.x=x;
 		this.y=y;
@@ -134,6 +159,19 @@ class Vector3{//Required math functions are made from scratch
 	}
 }//end of Vector3 class
 
+/*
+========================================================================================================
+	Name: RGBAValue
+	Purpose: Store RGBa pixel values to easily access rgba values 
+	Arguments: Constructor expects:
+				r value - red componet of a pixel
+				g value - green componet of a pixel
+				b value - blue componet of a pixel
+				a value - transparency component of a pixel
+				
+	Return: N/A - used in the construction of sphere objects during scene parsing
+========================================================================================================
+*/
 //RGBAValue class given - used to assign Red,Green,Blue,Alpha values
 class RGBAValue{
 	constructor(r,g,b,a)
@@ -147,6 +185,7 @@ class RGBAValue{
 
 
 /*
+*****************************************************************************************
 	Name: makeImagePlane
 	Purpose: used during camera object construction. uses camera fields/members to
 			construct a image plane at distance D from camera eye
@@ -158,6 +197,7 @@ class RGBAValue{
 			dist - float that represents the distance from eye based on FOV of camera eye
 			halfWidth,halfHeight - floats that represent half values of the image plane
 	Return: image plane object - shape {center:center,LL:LL,UL:UL,UR:UR,LR:LR,dist:dist}
+******************************************************************************************	
 */
 function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 	
@@ -175,6 +215,7 @@ function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 }//end of makeImagePlane() function.
 
 /*
+========================================================================================================
 	Name: Camera
 	Purpose: class representing a camera. takes...
 	Arguments: Constructor expects:
@@ -204,6 +245,7 @@ function makeImagePlane(eye,forward,right,up,dist,halfWidth,halfHeight){
 				generateRay()
 				
 	Return: N/A - used in the construction of camera objects during scene parsing and to generate rays for camera
+========================================================================================================
 */
 class Camera{//This object stores camera vectors
 	constructor(eye, lookAt, up, fovDeg, width, height, sunLocation, backgroundColor){
@@ -231,15 +273,13 @@ class Camera{//This object stores camera vectors
 		}
 		//calculate the camera basis (foward,right,up)
 		this.buildBasis();
+
 		//get fov in radians
 		let fovRad = (this.fov * Math.PI) / 180.0;
 		
-		//let halfHeight = this.height / 2.0;
-		//let halfWidth = this.width / 2.0;
 		//half is 1 since image plane width/height should be 2 across
 		let halfHeight = 1.0;
 		let halfWidth = 1.0;
-		//let halfWidth = (this.width / this.height) * halfHeight;
 		
 		//distance d is 1/tan(half of theta in radians)
 		this.planeDist = halfHeight / Math.tan(fovRad / 2.0);
@@ -254,8 +294,14 @@ class Camera{//This object stores camera vectors
 		if (debug_mode)console.log("imagePlane(LR): ",this.imagePlane.LR);
 		
 	}
+
 	/*
-		buildBasis() - class function for calculating the camera basis
+	*****************************************************************************************
+	Name: buildBasis
+	Purpose: Calculates the camera basis including forward, right and trueUp
+	Arguments: None
+	Return: Nothing
+	******************************************************************************************	
 	*/
 	buildBasis(){
 		//w,u,v (not to be confused with billboard w,u,v)
@@ -265,9 +311,15 @@ class Camera{//This object stores camera vectors
 		//this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.right, this.forward));
 		this.trueUp = Vector3.normalizeVector(Vector3.crossProduct(this.forward,this.right));
 	}
+	
 	/*
-		generateRay() - class function that for a given pixel (x,y) generate a new 
-		ray object with a origin at eye and direction calculated from point p - eye
+	*****************************************************************************************
+	Name: generateRay
+	Purpose: class function that for a given pixel (x,y) generate a new 
+		     ray object with a origin at eye and direction calculated from point p - eye
+	Arguments: None
+	Return: Nothing
+	******************************************************************************************	
 	*/
 	generateRay(pixelX, pixelY){
 		let w = this.width;
@@ -299,6 +351,17 @@ class Camera{//This object stores camera vectors
 	}
 }
 
+/*
+========================================================================================================
+	Name: Scene
+	Purpose: class that stores a complete scene including camera, sphere list, and billboard list.
+	Arguments: Constructor expects:
+				camera - Camera object with render settings and bitmap
+				spheres - array of Sphere objects for ray intersections
+				billboards - array of Billboard objects for textured quads
+	Return: N/A - used as the top-level parsed scene container
+========================================================================================================
+*/
 class Scene{//This object stores everything required for a scene
 	constructor(camera,spheres,billboards){
 		this.camera = camera;
@@ -307,6 +370,18 @@ class Scene{//This object stores everything required for a scene
 	}
 }
 
+/*
+========================================================================================================
+	Name: Image
+	Purpose: class that stores parsed image pixel data and dimensions for billboard texturing.
+	Arguments: Constructor expects:
+				data - flat array of RGBAValue pixels
+				width - integer width of image
+				height - integer height of image
+				fileName - string name of original image file
+	Return: N/A - used for matching files to scene billboards
+========================================================================================================
+*/
 class Image{//This object stores image data
 	constructor(data,width,height,fileName){
 		this.data=data;
@@ -316,7 +391,17 @@ class Image{//This object stores image data
 	}
 }
 
-class Ray{//This object stores the data for a ray
+/*
+========================================================================================================
+	Name: Ray
+	Purpose: class that stores a normalized ray with origin and direction for ray casting.
+	Arguments: Constructor expects:
+				origin - Vector3 start point of the ray
+				direction - Vector3 direction of the ray (normalized in constructor)
+	Return: N/A - used by camera ray generation and intersection tests
+========================================================================================================
+*/
+class Ray{
 	constructor(origin, direction){
 		this.origin = origin;
 		this.direction = Vector3.normalizeVector(direction);
@@ -331,7 +416,14 @@ var filesToRead=[];//List of files to be read
 var imageData=[];//The image contents are stored separately here
 var doneLoading=false;//Checks if the scene is done loading to prevent renderer draw premuturly.
 
-// Draw the scene.
+/*
+========================================================================================================
+	Name: drawScene
+	Purpose: main render loop that waits for async file loading, then renders each frame.
+	Arguments: None
+	Return: N/A - updates canvas by calling ray shooting and schedules the next frame
+========================================================================================================
+*/
 function drawScene() {
 	if(doneLoading==false)
 	{
@@ -355,20 +447,6 @@ function drawScene() {
 	}else if(doneLoading==true)//If scene is completely read
 	{
 		// Rendering can start here
-		/*
-		if(!renderedOnce && single_test){
-			if (debug_mode)console.log("drawing scene");
-			renderedOnce = true;
-			if (debug_mode)console.log("shooting ray");
-			if (single_shot){
-				shootSingleCenterRay();
-			} else {
-				shootRays();
-			}
-		} else {
-			shootRays();
-		}
-		*/
 		shootRays();
 	}
 
@@ -377,28 +455,21 @@ function drawScene() {
 
 }
 
-/*
-Test GIF create function and global variables. Feel free to revise this for your assingment.
-*/
 
+//GIF Vars
 var gifT=0;// The animation time that is between 0 and 1
 var encoder;// The encoder to save GIF file
 var gifFrame = 0;
 var gifTotalFrames = 30;
 
-// function createGif(){
-//     document.getElementById("canvas").setAttribute("width",100);
-// 	document.getElementById("canvas").setAttribute("height",100);
-// 	gifT=0;
-// 	encoder = new GIFEncoder();
-// 	encoder.setRepeat(0); //0  -> loop forever
-// 	encoder.setDelay(500); //go to next frame every n milliseconds
-// 	encoder.start();
-// 	testCreateGIFLoop();
-// }
-
-
-
+/*
+========================================================================================================
+	Name: createGif
+	Purpose: initializes GIF encoder settings and starts frame-by-frame GIF rendering.
+	Arguments: None
+	Return: N/A - starts asynchronous GIF frame capture loop
+========================================================================================================
+*/
 function createGif(){
   if (!doneLoading){
     console.warn("Scene not loaded yet.");
@@ -421,31 +492,15 @@ function createGif(){
   testCreateGIFLoop();
 }
 
+
 /*
-Test GIF create function and global variables. Feel free to revise this for your assingment.
+========================================================================================================
+	Name: testCreateGIFLoop
+	Purpose: animates camera position across frames, renders each frame, and writes to GIF.
+	Arguments: None
+	Return: N/A - finishes by downloading rendered GIF file
+========================================================================================================
 */
-
-// function testCreateGIFLoop(){
-// 	if(gifT<1){
-// 		let imgData=ctx.createImageData(100,100);
-// 		for(let i=0;i<100;i++){
-// 			for(let j=0;j<100;j++){
-// 				imgData.data[((i*100)+j)*4]=i*2;
-// 				imgData.data[((i*100)+j)*4+1]=j+Math.sin(gifT*10);
-// 				imgData.data[((i*100)+j)*4+2]=i+gifT*100;
-// 				imgData.data[((i*100)+j)*4+3]=255;
-// 			}	
-// 		}
-// 		ctx.putImageData(imgData,0,0);//Show image on canvas
-// 		encoder.addFrame(ctx);
-// 		gifT=gifT+0.1;
-// 		setTimeout(function() { requestAnimationFrame(testCreateGIFLoop)}, 100);
-// 	}else{
-// 		encoder.finish();
-// 		encoder.download("download.gif");
-// 	}
-//}
-
 function testCreateGIFLoop(){
   if (gifFrame < gifTotalFrames){
 
@@ -488,8 +543,14 @@ function testCreateGIFLoop(){
 }
 
 
-
-//debug version of shootRays()
+/*
+========================================================================================================
+	Name: shootSingleCenterRay
+	Purpose: debugging helper that casts one center ray and draws a cross marker on hit color.
+	Arguments: None
+	Return: N/A - writes debug cross to camera bitmap and updates canvas
+========================================================================================================
+*/
 function shootSingleCenterRay(){
 	if (debug_mode)console.log("single ray");
 	let camera = currentScene.camera;
@@ -517,6 +578,15 @@ function shootSingleCenterRay(){
 	}
 	drawBitmapToCanvas();
 }
+
+/*
+========================================================================================================
+	Name: shootRays
+	Purpose: casts one ray per pixel and fills camera bitmap with collision colors.
+	Arguments: None
+	Return: N/A - writes render results to bitmap and displays to canvas
+========================================================================================================
+*/
 function shootRays()//This function shoots rays
 {
 	let camera = currentScene.camera;
@@ -532,6 +602,15 @@ function shootRays()//This function shoots rays
 	drawBitmapToCanvas();
 }
 
+/*
+========================================================================================================
+	Name: findRayCollisionColor
+	Purpose: finds nearest ray hit among billboards and spheres, then returns final pixel color.
+	Arguments:
+			ray - Ray object generated from camera for one pixel
+	Return: RGBAValue color of closest intersection, or blue background when no hit is found
+========================================================================================================
+*/
 function findRayCollisionColor(ray)//Get color from ray casting
 {
 	let candidateT = Infinity;
@@ -558,6 +637,8 @@ function findRayCollisionColor(ray)//Get color from ray casting
 			candidateT = t;
 			candidateColor = new RGBAValue(currSphere.amb.r, currSphere.amb.g,currSphere.amb.b,currSphere.amb.a);
 			difusedValue = getDefused(ray, currSphere, t)
+
+			//Apply diffused power to original rgb values then clamp.
 			candidateColor.r = clamp255(candidateColor.r + difusedValue);
 			candidateColor.g = clamp255(candidateColor.g + difusedValue);
 			candidateColor.b = clamp255(candidateColor.b + difusedValue);
@@ -580,24 +661,56 @@ function findRayCollisionColor(ray)//Get color from ray casting
 	return candidateColor;
 }
 
+/*
+========================================================================================================
+	Name: getDefused
+	Purpose: computes diffuse lighting strength at a sphere hit point based on sun direction.
+	Arguments:
+			ray - Ray object used for current hit test
+			currSphere - Sphere object that was intersected
+			t - float distance along ray to collision point
+	Return: float intensity contribution scaled to 0-255 range (can be negative before clamp)
+========================================================================================================
+*/
 function getDefused(ray, currSphere, t){
 	let direction = ray.direction;
 	let center = currSphere.center;
 	let sunLocation = currentScene.camera.sunLocation;
 	
+	//vector that goes directly to sphere collision point
 	let p =  Vector3.multiplyVectorScalar(direction,t);
 	
+	//Compute normal on sphere. (center - p) 
 	let n = Vector3.normalizeVector(Vector3.minusTwoVectors(center,p));
+
+	//vector from p (point on sphere to sunLocation)
 	let v = Vector3.normalizeVector(Vector3.minusTwoVectors(p,sunLocation));
 	
+	//Dot product. How similar the normal is to the suns plane. 
+		//If dot is zero they are perpendicular and no diffusion.  
+		// If dot is 1 then facing sun full brightness. If negative then backside of sphere.
 	let difused = Vector3.dotProduct(n,v);
+	
+	//Percent of full diffused. 255 being full power of RGB vals.
 	difused = difused * 255;
 	
 	return difused;
 }
+
+
+/*
+========================================================================================================
+	Name: getSphereRayCollisionPoint
+	Purpose: solves quadratic ray-sphere intersection and returns nearest valid hit distance.
+	Arguments:
+			input - Sphere object to test
+			ray - Ray object to test against sphere
+	Return: float t distance for intersection, or null when no valid forward hit exists
+========================================================================================================
+*/
 function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 {
-//--------------------
+	//--------------------
 	//Steps from Slides
 	//--------------------
 
@@ -639,50 +752,12 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 		//  a       b            c
 
 	//Solve for roots of "t" using quadratic formula
-	/*
-	let org = ray.origin;
-	let dir = ray.direction;
-	let cent = input.center;
-	let radius = input.radius;
 
-	//Calulate OC
-	let originCentVect = Vector3.subtracVector(org, cent);
+	//---------------------
+	//End Steps from Slides
+	//---------------------
 
-	//Calulate a,b and c quadratc coefficients
-	let a = Vector3.dotProduct(dir,dir);
-	let b = 2.0 * Vector3.dotProduct(originCentVect, dir);
-	let c = Vector3.dotProduct(originCentVect, originCentVect) - (radius * radius);
 
-	//Everything under the root in the quadratic equation make next few lines easier to write and less unruly.
-	let discriminant = (b*b) - 4 * a * c;
-
-	//We have a complex number no real root, so ray does not intersect the sphere
-	if (discriminant < 0) 
-	{
-		 return null;
-	}
-
-	//Root the discrimnant save as var to make lines below easier to write
-	let sqrtDiscriminant = Math.sqrt(discriminant);
-
-	//The roots of the quadratic.  Note: atT1 will be the closest intersection and should be the pixel that is lit up
-	let atT1 = (-b - sqrtDiscriminant) / (2.0 * a);
-	let atT2 = (-b + sqrtDiscriminant) / (2.0 * a);
-
-	//Make sure values are greater than 1.  If values are negative they are behind the camera, so won't show up on the screen 
-	if (atT1 > 0 )
-	{
-		return atT1;
-	}
-
-	//If value 1 is negative but atT2 is positive the sphere may be over the camera and the second root will be on the screen.
-	if (atT2 > 0)
-	{
-		return atT2;
-	}
-	*/
-	//O-C
-	//input == sphere
 	let oc = Vector3.minusTwoVectors(ray.origin, input.center);
 	
 	let a = Vector3.dotProduct(ray.direction, ray.direction);//1 since normalized?
@@ -699,13 +774,7 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	let t2 = (-b + sqrtDisc) / (2.0*a);
 	//find t s.t its "nearest"
 	let t = null;
-	/*
-	if (t1 > 0.0001) {
-		t = t1;
-	} else if (t2 > 0.0001){
-		t = t2;
-	}
-	*/
+
 	if (t1 >= currentScene.camera.planeDist){
 		t = t1;
 	} else if (t2 >= currentScene.camera.planeDist){
@@ -715,6 +784,16 @@ function getSphereRayCollisionPoint(input,ray)//Get ray sphere collision
 	return t;
 }
 
+/*
+========================================================================================================
+	Name: getBillboardHit
+	Purpose: performs ray-plane hit test for billboard, validates bounds, and samples texture color.
+	Arguments:
+			bb - Billboard object containing corners, basis vectors, and image data
+			ray - Ray object to test
+	Return: object shape {t, color} when hit exists, or null when ray misses/invalid pixel
+========================================================================================================
+*/
 function getBillboardHit(bb, ray){
 
 	
@@ -734,24 +813,8 @@ function getBillboardHit(bb, ray){
 	if (bb.w <= 0.000001 || bb.h <= 0.000001){
 		return null;
 	}
+
 	//U-> x-axis and V-> y-axis
-	/*
-	let edgeU = Vector3.minusTwoVectors(pLR, pLL);
-	let edgeV = Vector3.minusTwoVectors(pUL, pLL);
-	
-	let w = Vector3.getMagnitude(edgeU);
-	if (debug_mode)console.log("w : ", w);
-	let h = Vector3.getMagnitude(edgeV);
-	if (debug_mode)console.log("h : ", h);
-	if (w <= 0.000001 || h <= 0.000001){
-		return null;
-	}
-	
-	let U = Vector3.multiplyVectorScalar(edgeU, 1.0 / w);
-	let V = Vector3.multiplyVectorScalar(edgeV, 1.0 / h);
-	if (debug_mode)console.log("U :", U);
-	if (debug_mode)console.log("V :", V);
-	*/
 	let U = bb.U;
 	let V = bb.V
 	let n = Vector3.crossProduct(U, V);
@@ -767,12 +830,8 @@ function getBillboardHit(bb, ray){
 	
 	let t = Vector3.dotProduct(Vector3.minusTwoVectors(pLL,ray.origin),n)/denom;
 	if (debug_mode)console.log("t: ",t);
+	
 	//too close to camera case --- can adjust as needed
-	/*
-	if (t <= 0.0001){
-		return null;
-	}
-	*/
 	if (t < currentScene.camera.planeDist){
 		return null;
 	}
@@ -824,15 +883,7 @@ function getBillboardHit(bb, ray){
 	}
 	let pixelData = bb.img.data[idx];
 	if (debug_mode)console.log("px,py,idx: ", px,py,idx, "pixel: ",pixelData);
-	//let pixelData = bb.img.data[100];
-	/*
-	if (debug_mode)console.log("pixel[0] :", bb.img.data[0]);
-	if (debug_mode)console.log("pixel[1] :", bb.img.data[1]);
-	if (debug_mode)console.log("pixel[100] :", bb.img.data[100]);
-	if (debug_mode)console.log("pixel[1000] :", bb.img.data[1000]);
-	if (debug_mode)console.log("pixel[10000] :", bb.img.data[10000]);
-	if (debug_mode)console.log("pixel[100000] :", bb.img.data[10000]);
-	*/
+
 	//ignore alphas that are 0 (transparent)
 	if (pixelData.a == 0){
 		return null;
@@ -841,6 +892,14 @@ function getBillboardHit(bb, ray){
 	return { t: t, color: new RGBAValue(pixelData.r, pixelData.g, pixelData.b, 255) };
 }
 
+/*
+========================================================================================================
+	Name: drawBitmapToCanvas
+	Purpose: copies camera bitmap RGBA values into canvas ImageData for on-screen display.
+	Arguments: None
+	Return: N/A - updates canvas pixels with current render buffer
+========================================================================================================
+*/
 function drawBitmapToCanvas(){
 	let camera = currentScene.camera;
 	let imgData = ctx.createImageData(camera.width, camera.height);
@@ -858,6 +917,14 @@ function drawBitmapToCanvas(){
 	ctx.putImageData(imgData,0,0);
 }
 
+/*
+========================================================================================================
+	Name: readSceneMaterial
+	Purpose: reads selected scene/image files asynchronously and starts render loop when queued.
+	Arguments: None - uses files selected by HTML input element
+	Return: N/A - populates scene and image storage for rendering
+========================================================================================================
+*/
 function readSceneMaterial()//This is the function that is called after user selects multiple files of images and scenes
 {
 	if (debug_mode)console.log("entered readSceneMaterial");
@@ -904,15 +971,7 @@ function readSceneMaterial()//This is the function that is called after user sel
 							//if (debug_mode)console.log(png);
 							let img = parsePNG(png,fileName);
 							if (debug_mode)console.log("image: ", img);
-							/*
-							let zeroAlphaCount = 0;
-						    for (let i = 0; i < img.data.length; i++){
-								if (img.data[i].a == 0){
-									zeroAlphaCount++;
-								}
-							}
-							if (debug_mode)console.log("alpha count: ", zeroAlphaCount, "out of: ", img.data.length);
-							*/
+		
 							imageData.push(img);
 							filesToRead[index]=false;//Javascript does not immediately read the files. It starts to read only when the function returns. A list of "to be read files" is required.
 						});
@@ -932,7 +991,15 @@ function readSceneMaterial()//This is the function that is called after user sel
 	}
 }
 
-function assignImagesToScenes()//Initially the scene and images need to be read async, therefore, after reading the files, images should be assinged to billboards inside the scenes
+/*
+========================================================================================================
+	Name: assignImagesToScenes
+	Purpose: matches parsed images to billboards by file name and sets active scene reference.
+	Arguments: None
+	Return: N/A - updates scene billboard image pointers and currentScene global
+========================================================================================================
+*/
+function assignImagesToScenes()
 {
 	for (let s = 0; s < scenes.length; s++){
 		let currScene = scenes[s];
@@ -962,12 +1029,30 @@ function assignImagesToScenes()//Initially the scene and images need to be read 
 	}
 }
 
+/*
+========================================================================================================
+	Name: clamp255
+	Purpose: clamps numeric color channel value into valid [0,255] range.
+	Arguments:
+			x - numeric color channel value
+	Return: integer-like numeric value constrained between 0 and 255
+========================================================================================================
+*/
 function clamp255(x){
 	if (x < 0) return 0;
 	if (x > 255) return 255;
 	return x;
 }
 
+/*
+========================================================================================================
+	Name: floatColorToRGBA
+	Purpose: converts normalized float RGB [0..1] array into RGBAValue [0..255].
+	Arguments:
+			arr - float array [r,g,b] where each value is expected between 0 and 1
+	Return: RGBAValue object with alpha fixed to 255
+========================================================================================================
+*/
 function floatColorToRGBA(arr){
 	let r = clamp255(Math.round(arr[0] * 255));
 	let g = clamp255(Math.round(arr[1] * 255));
@@ -975,6 +1060,15 @@ function floatColorToRGBA(arr){
 	return new RGBAValue(r,g,b,255);
 }
 
+/*
+========================================================================================================
+	Name: parseScene
+	Purpose: parses scene JSON content and constructs Camera, Sphere, and Billboard objects.
+	Arguments:
+			file_data - string JSON text read from selected scene file
+	Return: Scene object populated with parsed camera, geometry, and billboard metadata
+========================================================================================================
+*/
 function parseScene(file_data)//A function to read JSON and put the data inside a scene class
 {
 	let text = file_data;
@@ -1085,7 +1179,16 @@ function parseScene(file_data)//A function to read JSON and put the data inside 
 	return new Scene(camera,spheres,billboards);
 }
 
-// This function reads a PNG file into RGBA
+/*
+========================================================================================================
+	Name: parsePNG
+	Purpose: converts decoded PNG object data into internal Image class format.
+	Arguments:
+			png - parsed PNG object from PNGReader
+			fileName - source image file name string
+	Return: Image object containing RGBAValue pixels and dimensions
+========================================================================================================
+*/
 function parsePNG(png,fileName){
 	
 	let rawValues = png.getRGBA8Array();
@@ -1103,34 +1206,19 @@ function parsePNG(png,fileName){
 	}
 	//billboard image values
 	return new Image(readImageValues,width,height,fileName);
-	
-	/*
-	let raw = png.getRGBA8Array();
-	let width = png.getWidth();
-	let height = png.getHeight();
-	
-	let pixelCount = width * height;
-	let readImageValues = new Array(pixelCount);
-	if (debug_mode)console.log("rawLen: ", raw.length, "rawLen/4: ", raw.length/4);
-	if (debug_mode)console.log("pixelCount: ", pixelCount);
-	
-	for (let p = 0; p < pixelCount; p++){
-		//"word" size is 4, offset = r, offset+1,2,3 == g,b,a
-		let base = p * 4;
-		let r = raw[base];
-		let g = raw[base + 1];
-		let b = raw[base + 2];
-		let a = raw[base + 3];
-		//write to rgba
-		readImageValues[p] = new RGBAValue(r,g,b,a);
-	}
-	
-	if (debug_mode)console.log("PNG len of raw: ", raw.length, "expected: ", pixelCount * 4);
-	if (debug_mode)console.log("first pixel: ", readImageValues[0]);
-	*/
-	return new Image(readImageValues, width, height, fileName);
 }
 
+
+/*
+========================================================================================================
+	Name: parsePPM
+	Purpose: parses binary PPM (P6) file data into internal Image class format.
+	Arguments:
+			file_data - raw PPM file content string
+			fileName - source image file name string
+	Return: Image object containing RGBAValue pixels and dimensions
+========================================================================================================
+*/
 function parsePPM(file_data,fileName){//The function to parse PPM file from homework 1.
     /*
    * Extract header
@@ -1189,7 +1277,14 @@ function parsePPM(file_data,fileName){//The function to parse PPM file from home
 	return new Image(readImageValues,width,height,fileName);
 }
 
-//Convert framebuffer to PPM file
+/*
+========================================================================================================
+	Name: convertToPPM
+	Purpose: converts current camera framebuffer into a PPM-compatible binary buffer.
+	Arguments: None
+	Return: Uint8Array containing full PPM file bytes (header + pixel data)
+========================================================================================================
+*/
 function convertToPPM()
 {
 	var width = currentScene.camera.width;
@@ -1221,7 +1316,14 @@ function convertToPPM()
 	return finalBuffer;
 }
 
-//Uses library "FileSaver.js" to save a buffer to file
+/*
+========================================================================================================
+	Name: writeScene
+	Purpose: exports current render to `myscene.ppm` using FileSaver.
+	Arguments: None
+	Return: N/A - triggers browser file download when bitmap exists
+========================================================================================================
+*/
 function writeScene() {
 	if (currentScene.camera.bitmap !== undefined)
 	{
